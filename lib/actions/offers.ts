@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { canMakeOfferOnListing } from "@/lib/offers/auth"
+import { notifyOfferReceived } from "@/lib/notifications/create"
 import { requireBuyerContext } from "@/lib/requirements/auth"
 import { offerFormSchema } from "@/lib/validations/offers"
 import { createClient } from "@/lib/supabase/server"
@@ -38,7 +39,7 @@ export async function createOfferAction(
 
   const { data: listingRow, error: listingLookupError } = await supabase
     .from("waste_listings")
-    .select("id, supplier_company_id, quantity, quantity_unit, status")
+    .select("id, supplier_company_id, quantity, quantity_unit, status, title")
     .eq("id", parsed.data.listingId)
     .eq("status", "active")
     .maybeSingle()
@@ -97,6 +98,12 @@ export async function createOfferAction(
   if (error) {
     return { error: error.message }
   }
+
+  await notifyOfferReceived(supabase, {
+    id: offer.id,
+    supplier_company_id: listing.supplier_company_id,
+    listingTitle: listingRow.title,
+  })
 
   revalidatePath("/dashboard/offers")
   revalidatePath(`/dashboard/listings/view/${listing.id}`)

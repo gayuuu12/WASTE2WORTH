@@ -6,6 +6,7 @@ import { requireCompleteProfile } from "@/lib/auth"
 import {
   getConversationForParticipant,
 } from "@/lib/messages/queries"
+import { notifyNewMessage } from "@/lib/notifications/create"
 import { createClient } from "@/lib/supabase/server"
 import { sendMessageSchema } from "@/lib/validations/messages"
 
@@ -63,6 +64,8 @@ export async function sendMessageAction(
     if (updateError) {
       return { error: updateError.message }
     }
+
+    await notifyNewMessage(supabase, conversation, ctx.company.id, body)
 
     revalidatePath("/dashboard/messages")
     revalidatePath(`/dashboard/messages/${parsed.data.conversationId}`)

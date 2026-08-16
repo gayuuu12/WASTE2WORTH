@@ -6,6 +6,7 @@ import { isRedirectError } from "next/dist/client/components/redirect-error"
 import { requireCompleteProfile } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { getTransactionForParticipant } from "@/lib/transactions/queries"
+import { notifyTransactionStatusChange } from "@/lib/notifications/create"
 import {
   canTransitionTransactionStatus,
   getNextTransactionStatuses,
@@ -74,6 +75,13 @@ export async function updateTransactionStatusAction(
     if (!data) {
       return { error: "Transaction status has already changed. Refresh and try again." }
     }
+
+    await notifyTransactionStatusChange(
+      supabase,
+      transaction,
+      nextStatus,
+      ctx.company.id,
+    )
 
     revalidatePath("/dashboard/transactions")
     revalidatePath(`/dashboard/transactions/${transaction.id}`)

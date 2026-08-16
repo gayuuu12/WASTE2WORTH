@@ -1,6 +1,6 @@
 import Link from "next/link"
 import type { Conversation, Message } from "@/lib/types"
-import { MessageBubble } from "@/components/messages/message-bubble"
+import { RealtimeMessageThread } from "@/components/messages/realtime-message-thread"
 import { MessageComposer } from "@/components/messages/message-composer"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -53,25 +53,13 @@ export function ConversationView({
           <CardTitle className="text-base">Messages</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {messages.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No messages yet. Send the first message below.
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {messages.map((message) => {
-                const isOwn = message.sender_company_id === ownCompanyId
-                return (
-                  <MessageBubble
-                    key={message.id}
-                    message={message}
-                    isOwn={isOwn}
-                    senderLabel={isOwn ? ownCompanyName : counterpartyName}
-                  />
-                )
-              })}
-            </div>
-          )}
+          <RealtimeMessageThread
+            conversationId={conversation.id}
+            initialMessages={messages}
+            ownCompanyId={ownCompanyId}
+            ownCompanyName={ownCompanyName}
+            counterpartyName={counterpartyName}
+          />
         </CardContent>
       </Card>
 

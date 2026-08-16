@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { BrandLogo } from "@/components/brand-logo"
 import { SignOutButton } from "@/components/dashboard/sign-out-button"
+import { NotificationNavLink } from "@/components/notifications/notification-nav-link"
 import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { Company } from "@/lib/types"
@@ -11,9 +12,13 @@ import { canViewOffers } from "@/lib/offers/auth"
 export function DashboardShell({
   children,
   company,
+  unreadNotificationCount,
+  userId,
 }: {
   children: React.ReactNode
   company: Company
+  unreadNotificationCount: number
+  userId: string
 }) {
   const canList = canCreateListings(company)
   const canRequire = canManageRequirements(company)
@@ -62,6 +67,10 @@ export function DashboardShell({
               {item.label}
             </Link>
           ))}
+          <NotificationNavLink
+            initialUnreadCount={unreadNotificationCount}
+            userId={userId}
+          />
         </nav>
       </header>
       <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>

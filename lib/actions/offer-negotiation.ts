@@ -18,6 +18,13 @@ import {
   createTransactionFromOffer,
   getTransactionForOffer,
 } from "@/lib/transactions/queries"
+import {
+  notifyCounterAccepted,
+  notifyCounterRejected,
+  notifyCounterofferReceived,
+  notifyOfferAccepted,
+  notifyOfferRejected,
+} from "@/lib/notifications/create"
 
 export type NegotiationActionResult = {
   error?: string
@@ -81,6 +88,12 @@ async function acceptOfferAndCreateTransaction(
 
   const materialName = await resolveMaterialName(supabase, offer)
   const transactionId = await createTransactionFromOffer(supabase, offer, materialName)
+
+  if (offer.is_counter) {
+    await notifyCounterAccepted(supabase, offer)
+  } else {
+    await notifyOfferAccepted(supabase, offer)
+  }
 
   revalidatePath("/dashboard/offers")
   revalidatePath(`/dashboard/offers/${offer.id}`)
@@ -163,6 +176,12 @@ export async function rejectOfferAction(
       return { error: "This offer is no longer pending." }
     }
 
+    if (offer.is_counter) {
+      await notifyCounterRejected(supabase, offer)
+    } else {
+      await notifyOfferRejected(supabase, offer)
+    }
+
     revalidatePath("/dashboard/offers")
     revalidatePath(`/dashboard/offers/${offer.id}`)
     redirect(`/dashboard/offers/${offer.id}?rejected=1`)
@@ -238,6 +257,12 @@ export async function counterOfferAction(
     if (parentError) {
       return { error: parentError.message }
     }
+
+    await notifyCounterofferReceived(supabase, {
+      id: counter.id,
+      buyer_company_id: offer.buyer_company_id,
+      parent_offer_id: offer.id,
+    })
 
     revalidatePath("/dashboard/offers")
     revalidatePath(`/dashboard/offers/${offer.id}`)

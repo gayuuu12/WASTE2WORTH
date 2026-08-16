@@ -26,6 +26,7 @@ export function DashboardShell({
     { href: "/dashboard/matches", label: "Matches" },
     ...(showOffers ? [{ href: "/dashboard/offers", label: "Offers" }] : []),
     { href: "/dashboard/transactions", label: "Transactions" },
+    { href: "/dashboard/messages", label: "Messages" },
     { href: "/marketplace", label: "Marketplace" },
   ]
 

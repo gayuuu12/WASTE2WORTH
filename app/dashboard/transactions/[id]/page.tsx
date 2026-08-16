@@ -53,6 +53,15 @@ export default async function TransactionDetailPage({
 
       <TransactionDetailView transaction={transaction} viewerRole={viewerRole} />
 
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href={`/dashboard/transactions/${transaction.id}/message`}
+          className={cn(buttonVariants({ size: "sm" }))}
+        >
+          {viewerRole === "buyer" ? "Message Supplier" : "Message Buyer"}
+        </Link>
+      </div>
+
       <div className="rounded-lg border border-border p-4">
         <TransactionStatusForm transaction={transaction} />
       </div>

@@ -1,7 +1,13 @@
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js"
 import type { ImpactPeriod } from "@/lib/impact/constants"
 import { getImpactPeriodStart } from "@/lib/impact/period"
 import type { MaterialOutcome, Transaction } from "@/lib/types"
+
+/**
+ * FK from material_outcomes.transaction_id → transactions.id
+ * (inline REFERENCES in 20260817_000010_material_outcomes.sql)
+ */
+export const MATERIAL_OUTCOMES_TRANSACTION_FK = "material_outcomes_transaction_id_fkey"
 
 const IMPACT_TRANSACTION_SELECT = `
   *,
@@ -14,7 +20,7 @@ const IMPACT_TRANSACTION_SELECT = `
   ),
   buyer:companies!transactions_buyer_company_id_fkey(id, name, city, state, country),
   supplier:companies!transactions_supplier_company_id_fkey(id, name, city, state, country),
-  outcome:material_outcomes(*)
+  outcome:material_outcomes!${MATERIAL_OUTCOMES_TRANSACTION_FK}(*)
 `
 
 export type ImpactTransaction = Transaction & {
@@ -36,6 +42,27 @@ export function mapImpactTransaction(row: ImpactTransaction): ImpactTransaction 
   }
 }
 
+function throwImpactQueryError(context: string, error: PostgrestError): never {
+  const details = [
+    `Impact query failed (${context})`,
+    error.message,
+    error.code ? `PostgREST code: ${error.code}` : null,
+    error.details ? `details: ${error.details}` : null,
+    error.hint ? `hint: ${error.hint}` : null,
+  ].filter(Boolean)
+
+  if (error.message.includes("relationship") || error.code === "PGRST200") {
+    details.push(
+      "Expected relationship: transactions.id ← material_outcomes.transaction_id",
+      `Expected FK constraint: ${MATERIAL_OUTCOMES_TRANSACTION_FK}`,
+      "Ensure supabase/migrations/20260817_000010_material_outcomes.sql has been applied.",
+      "If the migration was just applied, reload the PostgREST schema cache in Supabase (Settings → API → Reload schema).",
+    )
+  }
+
+  throw new Error(details.join(" | "))
+}
+
 export async function getImpactTransactionsForCompany(
   supabase: SupabaseClient,
   companyId: string,
@@ -54,7 +81,7 @@ export async function getImpactTransactionsForCompany(
   }
 
   const { data, error } = await query
-  if (error) throw new Error(error.message)
+  if (error) throwImpactQueryError("getImpactTransactionsForCompany", error)
 
   return (data ?? []).map((row) => mapImpactTransaction(row as ImpactTransaction))
 }
@@ -71,7 +98,7 @@ export async function getImpactTransactionDetail(
     .or(`buyer_company_id.eq.${companyId},supplier_company_id.eq.${companyId}`)
     .maybeSingle()
 
-  if (error) throw new Error(error.message)
+  if (error) throwImpactQueryError("getImpactTransactionDetail", error)
   if (!data) return null
   return mapImpactTransaction(data as ImpactTransaction)
 }
@@ -86,6 +113,6 @@ export async function getMaterialOutcomeForTransaction(
     .eq("transaction_id", transactionId)
     .maybeSingle()
 
-  if (error) throw new Error(error.message)
+  if (error) throwImpactQueryError("getMaterialOutcomeForTransaction", error)
   return data as MaterialOutcome | null
 }

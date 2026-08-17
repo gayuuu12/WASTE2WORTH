@@ -1,10 +1,13 @@
 import Link from "next/link"
 import { RequirementCard } from "@/components/requirements/requirement-card"
+import { EmptyState } from "@/components/ui/empty-state"
+import { PageHeader } from "@/components/ui/page-header"
 import { buttonVariants } from "@/components/ui/button"
 import { requireCompleteProfile } from "@/lib/auth"
 import { canManageRequirements } from "@/lib/requirements/auth"
 import { getCompanyRequirements } from "@/lib/requirements/auth"
 import { cn } from "@/lib/utils"
+import { ClipboardList, Plus } from "lucide-react"
 
 export default async function RequirementsPage() {
   const ctx = await requireCompleteProfile()
@@ -12,10 +15,10 @@ export default async function RequirementsPage() {
   if (!canManageRequirements(ctx.company)) {
     return (
       <div className="space-y-4">
-        <h1 className="font-display text-3xl font-bold tracking-tight">My requirements</h1>
-        <p className="text-muted-foreground">
-          Only buyer and dual-role companies can create material requirements.
-        </p>
+        <PageHeader
+          title="Requirements"
+          description="Only buyer and dual-role companies can create material requirements."
+        />
         <Link href="/dashboard" className={cn(buttonVariants({ variant: "outline" }))}>
           Back to dashboard
         </Link>
@@ -27,28 +30,26 @@ export default async function RequirementsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">My requirements</h1>
-          <p className="text-muted-foreground">Manage buyer material requirements</p>
-        </div>
+      <PageHeader
+        title="Requirements"
+        description="Tell Waste2Worth what material you need and discover matching listings."
+      >
         <Link href="/dashboard/requirements/new" className={cn(buttonVariants())}>
-          New requirement
+          <Plus className="mr-2 size-4" aria-hidden />
+          Add requirement
         </Link>
-      </div>
+      </PageHeader>
 
       {requirements.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-10 text-center">
-          <p className="text-muted-foreground">
-            Create a buyer requirement to discover matching materials.
-          </p>
-          <Link
-            href="/dashboard/requirements/new"
-            className={cn(buttonVariants(), "mt-4 inline-flex")}
-          >
-            Create requirement
+        <EmptyState
+          title="No requirements yet"
+          description="Tell Waste2Worth what material you need."
+          icon={<ClipboardList className="size-5" aria-hidden />}
+        >
+          <Link href="/dashboard/requirements/new" className={cn(buttonVariants())}>
+            Add requirement
           </Link>
-        </div>
+        </EmptyState>
       ) : (
         <div className="space-y-4">
           {requirements.map((requirement) => (

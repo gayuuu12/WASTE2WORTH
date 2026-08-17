@@ -2,9 +2,11 @@ import Link from "next/link"
 import { MyListingCard } from "@/components/listings/my-listing-card"
 import { MatchCard } from "@/components/matches/match-card"
 import { RequirementCard } from "@/components/requirements/requirement-card"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
+import { PageHeader } from "@/components/ui/page-header"
+import { StatCard } from "@/components/ui/stat-card"
 import { buttonVariants } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { requireCompleteProfile } from "@/lib/auth"
 import { canCreateListings } from "@/lib/listings/auth"
 import {
@@ -20,14 +22,29 @@ import {
 import { canManageRequirements } from "@/lib/requirements/auth"
 import { getCompanyRequirements } from "@/lib/requirements/auth"
 import { createClient } from "@/lib/supabase/server"
-import { titleCase } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import type { BuyerRequirement, WasteListing } from "@/lib/types"
 import type { MatchView } from "@/lib/matching/queries"
+import {
+  ArrowLeftRight,
+  ClipboardList,
+  Package,
+  Plus,
+  Sparkles,
+  Store,
+  Wand2,
+} from "lucide-react"
+
+function getGreeting() {
+  const hour = new Date().getHours()
+  if (hour < 12) return "Good morning"
+  if (hour < 17) return "Good afternoon"
+  return "Good evening"
+}
 
 export default async function DashboardPage() {
   const ctx = await requireCompleteProfile()
-  const { profile, company, user } = ctx
+  const { profile, company } = ctx
   const supabase = await createClient()
   const isSupplier = canCreateListings(company)
   const isBuyer = canManageRequirements(company)
@@ -64,205 +81,211 @@ export default async function DashboardPage() {
     transactionCount = transactions ?? 0
   }
 
+  const firstName = profile.full_name?.split(" ")[0]
+  const greeting = getGreeting()
+
   return (
     <div className="space-y-8">
-      <div className="space-y-1">
-        <h1 className="font-display text-3xl font-bold tracking-tight">
-          Welcome{profile.full_name ? `, ${profile.full_name.split(" ")[0]}` : ""}
-        </h1>
-        <p className="text-muted-foreground">Your Waste2Worth business dashboard</p>
-      </div>
+      <PageHeader
+        title={`${greeting}${firstName ? `, ${firstName}` : ""}`}
+        description="Here's what's happening with your marketplace activity."
+      />
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardDescription>Your account</CardDescription>
-            <CardTitle className="text-xl">{profile.full_name ?? "—"}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <p>
-              <span className="text-muted-foreground">Email:</span>{" "}
-              {profile.email ?? user.email ?? "—"}
-            </p>
-            <p>
-              <span className="text-muted-foreground">Phone:</span>{" "}
-              {profile.phone ?? "—"}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardDescription>Company</CardDescription>
-            <CardTitle className="text-xl">{company.name}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary">{titleCase(company.role)}</Badge>
-              <Badge variant="outline">{titleCase(company.verification_status)}</Badge>
-            </div>
-            <p>
-              <span className="text-muted-foreground">Industry:</span>{" "}
-              {company.industry ?? "—"}
-            </p>
-            <p>
-              <span className="text-muted-foreground">Business type:</span>{" "}
-              {company.business_type ?? "—"}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {isBuyer ? (
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Active requirements</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-display font-bold tabular">{activeRequirementCount}</p>
-              <Link
-                href="/dashboard/requirements"
-                className="mt-2 inline-block text-sm text-primary underline-offset-4 hover:underline"
-              >
-                Manage requirements
-              </Link>
-            </CardContent>
-          </Card>
-
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="text-base">Top matches</CardTitle>
-              <CardDescription>Highest-scoring listings for your requirements</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {topBuyerMatches.length === 0 ? (
-                <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">No suitable matches found yet.</p>
-                  <Link href="/dashboard/requirements/new" className={cn(buttonVariants({ size: "sm" }))}>
-                    Create requirement
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {topBuyerMatches.map((match) => (
-                    <MatchCard key={match.id} match={match} perspective="buyer" />
-                  ))}
-                  <Link href="/dashboard/matches" className="text-sm text-primary underline-offset-4 hover:underline">
-                    View all matches
-                  </Link>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      ) : null}
-
-      {isBuyer && recentRequirements.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Recent requirements</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {recentRequirements.map((requirement) => (
-              <RequirementCard key={requirement.id} requirement={requirement} />
-            ))}
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {isSupplier ? (
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Active listings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-display font-bold tabular">{activeListingCount}</p>
-              <Link
+      <section aria-labelledby="summary-heading">
+        <h2 id="summary-heading" className="sr-only">
+          Activity summary
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {isSupplier ? (
+            <>
+              <StatCard
+                label="Active listings"
+                value={activeListingCount}
                 href="/dashboard/listings"
-                className="mt-2 inline-block text-sm text-primary underline-offset-4 hover:underline"
-              >
-                Manage listings
-              </Link>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Buyer opportunities</CardTitle>
-              <CardDescription>Good or excellent matches (70%+)</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-display font-bold tabular">{supplierOpportunities}</p>
-              <Link
+                hrefLabel="Manage listings"
+              />
+              <StatCard
+                label="Buyer opportunities"
+                description="Matches at 70% or higher"
+                value={supplierOpportunities}
                 href="/dashboard/matches"
-                className="mt-2 inline-block text-sm text-primary underline-offset-4 hover:underline"
-              >
-                View matches
-              </Link>
-            </CardContent>
-          </Card>
+                hrefLabel="View matches"
+              />
+            </>
+          ) : null}
+          {isBuyer ? (
+            <>
+              <StatCard
+                label="Active requirements"
+                value={activeRequirementCount}
+                href="/dashboard/requirements"
+                hrefLabel="Manage requirements"
+              />
+              <StatCard
+                label="Matching listings"
+                value={topBuyerMatches.length > 0 ? topBuyerMatches.length : "—"}
+                href="/dashboard/matches"
+                hrefLabel="View matches"
+              />
+            </>
+          ) : null}
+          <StatCard
+            label="Active transactions"
+            value={transactionCount}
+            href="/dashboard/transactions"
+            hrefLabel="View transactions"
+            className={!isSupplier && !isBuyer ? "sm:col-span-2" : undefined}
+          />
+        </div>
+      </section>
 
-          <Card className="lg:col-span-1">
+      <section aria-labelledby="quick-actions-heading" className="space-y-4">
+        <h2 id="quick-actions-heading" className="font-display text-lg font-semibold">
+          Quick actions
+        </h2>
+        <div className="flex flex-wrap gap-2">
+          {isSupplier ? (
+            <>
+              <Link href="/dashboard/listings/new" className={cn(buttonVariants())}>
+                <Plus className="mr-2 size-4" aria-hidden />
+                Create listing
+              </Link>
+              <Link
+                href="/dashboard/listings/ai-new"
+                className={cn(buttonVariants({ variant: "outline" }))}
+              >
+                <Wand2 className="mr-2 size-4" aria-hidden />
+                AI Smart Listing
+              </Link>
+            </>
+          ) : null}
+          {isBuyer ? (
+            <>
+              <Link href="/dashboard/requirements/new" className={cn(buttonVariants())}>
+                <Plus className="mr-2 size-4" aria-hidden />
+                Add requirement
+              </Link>
+              <Link href="/marketplace" className={cn(buttonVariants({ variant: "outline" }))}>
+                <Store className="mr-2 size-4" aria-hidden />
+                Browse marketplace
+              </Link>
+            </>
+          ) : null}
+          <Link href="/dashboard/matches" className={cn(buttonVariants({ variant: "outline" }))}>
+            <Sparkles className="mr-2 size-4" aria-hidden />
+            View matches
+          </Link>
+        </div>
+      </section>
+
+      <section aria-labelledby="recent-activity-heading" className="space-y-4">
+        <h2 id="recent-activity-heading" className="font-display text-lg font-semibold">
+          Recent activity
+        </h2>
+
+        {isSupplier && recentListings.length > 0 ? (
+          <Card>
             <CardHeader>
               <CardTitle className="text-base">Recent listings</CardTitle>
             </CardHeader>
-            <CardContent>
-              {recentListings.length === 0 ? (
-                <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">No listings available yet.</p>
-                  <Link href="/dashboard/listings/new" className={cn(buttonVariants({ size: "sm" }))}>
-                    Create listing
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {recentListings.map((listing) => (
-                    <MyListingCard key={listing.id} listing={listing} />
-                  ))}
-                </div>
-              )}
+            <CardContent className="space-y-3">
+              {recentListings.map((listing) => (
+                <MyListingCard key={listing.id} listing={listing} />
+              ))}
             </CardContent>
           </Card>
-        </div>
-      ) : null}
+        ) : null}
 
-      {isSupplier && topSupplierMatches.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Matching buyer opportunities</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+        {isBuyer && recentRequirements.length > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Recent requirements</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {recentRequirements.map((requirement) => (
+                <RequirementCard key={requirement.id} requirement={requirement} />
+              ))}
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {isBuyer && topBuyerMatches.length > 0 ? (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">Top matches for your requirements</p>
+            {topBuyerMatches.map((match) => (
+              <MatchCard key={match.id} match={match} perspective="buyer" />
+            ))}
+          </div>
+        ) : null}
+
+        {isSupplier && topSupplierMatches.length > 0 ? (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">Matching buyer opportunities</p>
             {topSupplierMatches.map((match) => (
               <MatchCard key={`supplier-${match.id}`} match={match} perspective="supplier" />
             ))}
-          </CardContent>
-        </Card>
-      ) : null}
+          </div>
+        ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Transactions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {transactionCount === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No transactions yet. Activity will appear here once trading begins.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-2xl font-display font-bold tabular">{transactionCount}</p>
+        {isSupplier &&
+        recentListings.length === 0 &&
+        topSupplierMatches.length === 0 &&
+        !isBuyer ? (
+          <EmptyState
+            title="No listings yet"
+            description="Publish your first surplus material and start finding buyers."
+            icon={<Package className="size-5" aria-hidden />}
+          >
+            <Link href="/dashboard/listings/new" className={cn(buttonVariants())}>
+              Create listing
+            </Link>
+            <Link
+              href="/dashboard/listings/ai-new"
+              className={cn(buttonVariants({ variant: "outline" }))}
+            >
+              Try AI Smart Listing
+            </Link>
+          </EmptyState>
+        ) : null}
+
+        {isBuyer &&
+        recentRequirements.length === 0 &&
+        topBuyerMatches.length === 0 &&
+        !isSupplier ? (
+          <EmptyState
+            title="No requirements yet"
+            description="Tell Waste2Worth what material you need."
+            icon={<ClipboardList className="size-5" aria-hidden />}
+          >
+            <Link href="/dashboard/requirements/new" className={cn(buttonVariants())}>
+              Add requirement
+            </Link>
+          </EmptyState>
+        ) : null}
+
+        {transactionCount > 0 ? (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">Transactions</CardTitle>
               <Link
                 href="/dashboard/transactions"
-                className="text-sm text-primary underline-offset-4 hover:underline"
+                className="text-sm font-medium text-primary underline-offset-4 hover:underline"
               >
-                View transactions
+                View all
               </Link>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </CardHeader>
+            <CardContent>
+              <p className="flex items-center gap-2 text-2xl font-display font-bold tabular">
+                <ArrowLeftRight className="size-5 text-muted-foreground" aria-hidden />
+                {transactionCount}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Active deals across {company.name}
+              </p>
+            </CardContent>
+          </Card>
+        ) : null}
+      </section>
     </div>
   )
 }

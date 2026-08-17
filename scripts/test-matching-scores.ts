@@ -6,7 +6,9 @@ import {
   calculateDistanceScore,
   calculateMaterialScore,
   calculatePriceScore,
+  calculateQualityScore,
   calculateQuantityScore,
+  distanceKmToScore,
 } from "../lib/matching/scores"
 import type { BuyerRequirement, WasteListing } from "../lib/types"
 
@@ -93,6 +95,34 @@ const req = baseRequirement()
 const listing = baseListing()
 assert(calculateMaterialScore(req, listing) === 100, "exact material match scores 100")
 
+// Keyword partial match — e.g. "Plastic Bottle" vs "Used Plastic Water Bottles"
+assert(
+  calculateMaterialScore(
+    baseRequirement({ material_name: "Plastic Bottle", desired_grade: null }),
+    baseListing({
+      material_name: "Used Plastic Water Bottles",
+      title: "Bulk plastic bottle scrap",
+      material_grade: null,
+    }),
+  ) >= 90,
+  "multi-keyword material query scores highly on partial listing match",
+)
+
+// Weak single-keyword match — e.g. only "Bottle" overlaps
+const weakKeywordScore = calculateMaterialScore(
+  baseRequirement({ material_name: "Plastic Bottle", desired_grade: null, category_id: "cat-other" }),
+  baseListing({
+    material_name: "Glass Bottle Waste",
+    title: "Glass bottle scrap",
+    category_id: "cat-glass",
+    material_grade: null,
+  }),
+)
+assert(
+  weakKeywordScore >= 30 && weakKeywordScore < 70,
+  "single shared keyword yields weak but non-zero material score",
+)
+
 // Category-only match (grade bonus applies when grades align)
 assert(
   calculateMaterialScore(
@@ -100,6 +130,16 @@ assert(
     baseListing({ material_name: "Mixed plastic", category_id: "cat-1" }),
   ) === 85,
   "same category + matching grade scores 85 when material differs",
+)
+
+// Quality not specified by buyer
+assert(
+  calculateQualityScore(baseRequirement({ preferred_quality: null }), baseListing()) === null,
+  "quality null when buyer did not specify preference",
+)
+assert(
+  calculateQualityScore(baseRequirement({ preferred_quality: "any" }), baseListing()) === null,
+  "quality null when preference is any",
 )
 
 // Quantity mismatch (unit)
@@ -141,11 +181,36 @@ const noCoords = calculateDistanceScore(
 )
 assert(noCoords.score === null && noCoords.distanceKm === null, "distance unavailable without coordinates")
 
-// Overall match for good pairing
+// Tier-based distance scoring
+assert(distanceKmToScore(12) === 100, "0-25 km scores excellent")
+assert(distanceKmToScore(40) === 85, "26-50 km scores very good")
+assert(distanceKmToScore(320) === 25, "201-500 km scores low")
+assert(distanceKmToScore(900) === 10, "above 500 km scores very low")
+
+// Distant suppliers are penalized but not zeroed when beyond max_distance_km
+const beyondMax = calculateDistanceScore(
+  baseRequirement({ max_distance_km: 100 }),
+  baseListing({ latitude: 28.6139, longitude: 77.209 }),
+)
+assert(
+  beyondMax.score != null && beyondMax.score > 0 && beyondMax.score <= 25,
+  "beyond max_distance reduces score but keeps listing matchable",
+)
+
+// Overall match for good pairing with all criteria specified
 const { overall, breakdown } = buildMatchScoreBreakdown(req, listing)
-assert(overall >= 70, "strong pairing yields good overall score")
+assert(overall >= 85, "full-criteria strong pairing can reach excellent match")
 assert(breakdown.material === 100, "breakdown includes material score")
 assert(breakdown.distance != null, "breakdown includes distance when coords present")
+
+// Incomplete requirement — strong partial matches must not show 100% overall
+const partialReq = baseRequirement({ preferred_quality: null, latitude: null, longitude: null })
+const partialMatch = buildMatchScoreBreakdown(partialReq, listing)
+assert(partialMatch.breakdown.quality == null, "quality omitted when not specified")
+assert(partialMatch.breakdown.quality_not_specified === true, "quality flagged not specified")
+assert(partialMatch.breakdown.distance_unavailable === true, "distance flagged unavailable")
+assert(partialMatch.overall === 70, "material+quantity+price at 100% yields 70% overall when quality/distance omitted")
+assert(partialMatch.overall < 85, "incomplete requirement cannot reach excellent match")
 
 // Unrelated material yields low material score (grade-only overlap)
 const weakMaterial = calculateMaterialScore(

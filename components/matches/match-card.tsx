@@ -24,53 +24,27 @@ export function MatchCard({
 
   const counterparty =
     perspective === "buyer"
-      ? listing.company?.name ?? "Supplier"
+      ? (listing.company?.name ?? "Supplier")
       : requirement.title
 
   return (
-    <Card>
-      <CardHeader className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <CardTitle className="text-lg">{listing.title}</CardTitle>
+    <Card className="overflow-hidden shadow-sm">
+      <CardHeader className="space-y-3 border-b border-border bg-muted/20 pb-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <CardTitle className="text-lg leading-snug">{listing.title}</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {perspective === "buyer"
+                ? `Supplier: ${counterparty}`
+                : `Buyer requirement: ${counterparty}`}
+            </p>
+          </div>
           <MatchTierBadge score={match.score} />
         </div>
-        <p className="text-sm text-muted-foreground">
-          {perspective === "buyer"
-            ? `Supplier: ${counterparty}`
-            : `Buyer requirement: ${counterparty}`}
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-4 text-sm">
-        <div className="grid gap-2 sm:grid-cols-2">
-          <p>
-            <span className="text-muted-foreground">Material:</span> {requirement.material_name}
-          </p>
-          <p>
-            <span className="text-muted-foreground">Available:</span>{" "}
-            {formatQuantity(listing.quantity, listing.quantity_unit)}
-          </p>
-          <p>
-            <span className="text-muted-foreground">Required:</span>{" "}
-            {formatQuantity(requirement.quantity_needed, requirement.quantity_unit)}
-          </p>
-          <p>
-            <span className="text-muted-foreground">Distance:</span>{" "}
-            {match.distance_km != null
-              ? `${match.distance_km.toFixed(1)} km straight-line`
-              : "Unavailable"}
-          </p>
-          <p>
-            <span className="text-muted-foreground">Asking price:</span>{" "}
-            {formatMoney(listing.asking_price, listing.currency)}
-          </p>
-          <p>
-            <span className="text-muted-foreground">Max price:</span>{" "}
-            {formatMoney(requirement.max_price, requirement.currency)}
-          </p>
-        </div>
-
         <div className="flex flex-wrap gap-2">
-          {listing.category?.name ? <Badge variant="secondary">{listing.category.name}</Badge> : null}
+          {listing.category?.name ? (
+            <Badge variant="secondary">{listing.category.name}</Badge>
+          ) : null}
           {listing.company?.verification_status === "verified" ? (
             <Badge>Verified supplier</Badge>
           ) : (
@@ -78,21 +52,79 @@ export function MatchCard({
               {titleCase(listing.company?.verification_status ?? "unverified")}
             </Badge>
           )}
-          <Badge variant="outline">Posted {formatDate(listing.created_at)}</Badge>
+        </div>
+      </CardHeader>
+
+      <CardContent className="grid gap-6 pt-6 lg:grid-cols-2">
+        <div className="space-y-4">
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Buyer requirement
+            </h3>
+            <p className="font-medium">{requirement.material_name}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Required: {formatQuantity(requirement.quantity_needed, requirement.quantity_unit)}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Max price: {formatMoney(requirement.max_price, requirement.currency)}
+            </p>
+          </div>
+
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Supplier listing
+            </h3>
+            <p className="font-medium">{listing.material_name}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Available: {formatQuantity(listing.quantity, listing.quantity_unit)}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Asking price: {formatMoney(listing.asking_price, listing.currency)}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Location:{" "}
+              {[listing.city, listing.state].filter(Boolean).join(", ") || "Not specified"}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Distance:{" "}
+              {match.distance_km != null
+                ? `${match.distance_km.toFixed(1)} km straight-line`
+                : "Unavailable"}
+            </p>
+          </div>
         </div>
 
-        <MatchScoreBreakdownView breakdown={breakdown} overall={match.score} />
+        <MatchScoreBreakdownView breakdown={breakdown} overall={match.score} compact />
       </CardContent>
-      {perspective === "buyer" ? (
-        <CardFooter>
+
+      <CardFooter className="flex flex-wrap gap-2 border-t border-border bg-muted/10">
+        {perspective === "buyer" ? (
+          <>
+            <Link
+              href={`/dashboard/listings/view/${listing.id}`}
+              className={cn(buttonVariants())}
+            >
+              View listing
+            </Link>
+            <Link
+              href={`/dashboard/listings/view/${listing.id}/offer`}
+              className={cn(buttonVariants({ variant: "outline" }))}
+            >
+              Make offer
+            </Link>
+          </>
+        ) : (
           <Link
-            href={`/dashboard/listings/view/${listing.id}`}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            href={`/dashboard/listings/${listing.id}`}
+            className={cn(buttonVariants())}
           >
-            View listing
+            View opportunity
           </Link>
-        </CardFooter>
-      ) : null}
+        )}
+        <span className="ml-auto self-center text-xs text-muted-foreground">
+          Posted {formatDate(listing.created_at)}
+        </span>
+      </CardFooter>
     </Card>
   )
 }

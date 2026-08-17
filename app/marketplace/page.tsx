@@ -1,13 +1,20 @@
 import Link from "next/link"
-import { BrandLogo } from "@/components/brand-logo"
 import { MarketplaceFiltersForm } from "@/components/listings/marketplace-filters"
 import { MarketplaceListingCard } from "@/components/listings/marketplace-listing-card"
+import { BrandLogo } from "@/components/brand-logo"
+import { EmptyState } from "@/components/ui/empty-state"
+import { PageHeader } from "@/components/ui/page-header"
 import { buttonVariants } from "@/components/ui/button"
+import { getSessionContext } from "@/lib/auth"
 import { getWasteCategories } from "@/lib/listings/categories"
-import { getMarketplaceListings } from "@/lib/listings/queries"
+import {
+  getMarketplaceListings,
+  marketplaceResultsAreEmpty,
+} from "@/lib/listings/queries"
 import { marketplaceFiltersSchema } from "@/lib/validations/listings"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
+import { Store } from "lucide-react"
 
 export default async function MarketplacePage({
   searchParams,
@@ -33,8 +40,13 @@ export default async function MarketplacePage({
 
   const filters = parsedFilters.success ? parsedFilters.data : {}
   const supabase = await createClient()
+  const session = await getSessionContext()
   const categories = await getWasteCategories(supabase)
-  const listings = await getMarketplaceListings(supabase, filters)
+  const results = await getMarketplaceListings(supabase, filters, {
+    buyerLatitude: session?.company?.latitude ?? null,
+    buyerLongitude: session?.company?.longitude ?? null,
+  })
+  const isEmpty = marketplaceResultsAreEmpty(results)
 
   return (
     <div className="min-h-screen bg-background">
@@ -54,25 +66,60 @@ export default async function MarketplacePage({
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl space-y-8 px-6 py-10">
-        <div className="space-y-2">
-          <h1 className="font-display text-3xl font-bold tracking-tight">Marketplace</h1>
-          <p className="text-muted-foreground">
-            Browse active industrial waste listings from verified suppliers
-          </p>
-        </div>
+      <main className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6 sm:py-10">
+        <PageHeader
+          title="Marketplace"
+          description="Browse active industrial waste listings from verified suppliers."
+        />
 
         <MarketplaceFiltersForm categories={categories} filters={filters} />
 
-        {listings.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border p-10 text-center">
-            <p className="text-muted-foreground">No listings available yet.</p>
-          </div>
+        {isEmpty ? (
+          <EmptyState
+            title="No listings available"
+            description="Check back soon or adjust your filters to see more materials."
+            icon={<Store className="size-5" aria-hidden />}
+          />
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {listings.map((listing) => (
-              <MarketplaceListingCard key={listing.id} listing={listing} />
-            ))}
+          <div className="space-y-10">
+            {results.strong.length > 0 ? (
+              <section className="space-y-4">
+                {results.hasActiveFilters ? (
+                  <h2 className="text-lg font-semibold tracking-tight">Top recommendations</h2>
+                ) : null}
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {results.strong.map(({ listing, score, distanceKm }) => (
+                    <MarketplaceListingCard
+                      key={listing.id}
+                      listing={listing}
+                      matchScore={results.hasActiveFilters ? score : undefined}
+                      distanceKm={distanceKm}
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {results.alternatives.length > 0 ? (
+              <section className="space-y-4">
+                <div>
+                  <h2 className="text-lg font-semibold tracking-tight">Recommended alternatives</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Partial matches ranked by relevance and distance.
+                  </p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {results.alternatives.map(({ listing, score, distanceKm }) => (
+                    <MarketplaceListingCard
+                      key={listing.id}
+                      listing={listing}
+                      matchScore={score}
+                      distanceKm={distanceKm}
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
           </div>
         )}
       </main>

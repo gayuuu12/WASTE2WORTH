@@ -1,9 +1,43 @@
 import { haversineKm } from "@/lib/format"
-import { DEFAULT_MAX_DISTANCE_KM, MATCH_WEIGHTS } from "@/lib/matching/constants"
+import { DISTANCE_SCORE_TIERS, MATCH_WEIGHTS } from "@/lib/matching/constants"
+import {
+  combineSearchQueries,
+  listingSearchHaystack,
+  normalizeSearchText,
+  scoreKeywordOverlap,
+} from "@/lib/matching/keywords"
+import {
+  isDistanceScoreable,
+  isPriceSpecified,
+  isQualitySpecified,
+  isQuantitySpecified,
+} from "@/lib/matching/requirement-dimensions"
 import type { BuyerRequirement, MatchScoreBreakdown, WasteListing } from "@/lib/types"
 
 function normalize(value: string | null | undefined) {
-  return (value ?? "").trim().toLowerCase()
+  return normalizeSearchText(value)
+}
+
+function listingMaterialHaystack(listing: WasteListing): string {
+  return listingSearchHaystack({
+    materialName: listing.material_name,
+    title: listing.title,
+    description: listing.description,
+    categoryName: listing.category?.name,
+    city: listing.city,
+    state: listing.state,
+    companyName: listing.company?.name,
+  })
+}
+
+/** Tier-based distance score — nearer suppliers rank higher; distant listings are not excluded. */
+export function distanceKmToScore(distanceKm: number): number {
+  for (const tier of DISTANCE_SCORE_TIERS) {
+    if (distanceKm <= tier.maxKm) {
+      return tier.score
+    }
+  }
+  return DISTANCE_SCORE_TIERS[DISTANCE_SCORE_TIERS.length - 1]?.score ?? 10
 }
 
 function isPriceUnitCompatible(priceUnit: string, quantityUnit: string) {
@@ -19,13 +53,14 @@ function isPriceUnitCompatible(priceUnit: string, quantityUnit: string) {
   return allowed.includes(quantityUnit)
 }
 
-/** Material compatibility — exact match, category, partial name, grade adjustment */
+/** Keyword-aware material compatibility for requirement ↔ listing pairs. */
 export function calculateMaterialScore(
   requirement: BuyerRequirement,
   listing: WasteListing,
 ): number {
   const reqMaterial = normalize(requirement.material_name)
   const listingMaterial = normalize(listing.material_name)
+  const haystack = listingMaterialHaystack(listing)
 
   let score = 0
 
@@ -37,12 +72,16 @@ export function calculateMaterialScore(
     (listingMaterial.includes(reqMaterial) || reqMaterial.includes(listingMaterial))
   ) {
     score = 60
-  } else if (
+  } else if (reqMaterial) {
+    score = Math.max(score, scoreKeywordOverlap(reqMaterial, haystack).score)
+  }
+
+  if (
     requirement.category_id &&
     listing.category_id &&
     requirement.category_id === listing.category_id
   ) {
-    score = 70
+    score = Math.max(score, score > 0 ? Math.min(100, score + 10) : 70)
   }
 
   const reqGrade = normalize(requirement.desired_grade)
@@ -59,15 +98,35 @@ export function calculateMaterialScore(
   return Math.round(Math.min(100, Math.max(0, score)))
 }
 
-/** Quantity compatibility — unit must match; compares needed, minimum, and available */
+/** Score marketplace listings from free-text / filter signals (no buyer requirement row). */
+export function calculateMarketplaceMaterialScore(
+  searchText: string | null | undefined,
+  listing: WasteListing,
+  categoryId?: string | null,
+): number {
+  const haystack = listingMaterialHaystack(listing)
+  const query = combineSearchQueries(searchText)
+  let score = 0
+
+  if (query) {
+    score = Math.max(score, scoreKeywordOverlap(query, haystack).score)
+  }
+
+  if (categoryId && listing.category_id === categoryId) {
+    score = Math.max(score, score > 0 ? Math.min(100, score + 10) : 75)
+  }
+
+  return Math.round(Math.min(100, Math.max(0, score)))
+}
+
 export function calculateQuantityScore(
   requirement: BuyerRequirement,
   listing: WasteListing,
 ): number | null {
-  if (requirement.quantity_needed == null) return null
+  if (!isQuantitySpecified(requirement)) return null
   if (requirement.quantity_unit !== listing.quantity_unit) return null
 
-  const needed = requirement.quantity_needed
+  const needed = requirement.quantity_needed!
   const minimum =
     requirement.minimum_acceptable_quantity != null
       ? requirement.minimum_acceptable_quantity
@@ -88,17 +147,27 @@ export function calculateQuantityScore(
   return 0
 }
 
-/** Quality compatibility — condition, grade, contamination vs buyer preference */
+/** Marketplace min-quantity filter as a ranking signal (not a hard cutoff). */
+export function calculateMarketplaceQuantityScore(
+  minQuantity: number | null | undefined,
+  listing: WasteListing,
+): number | null {
+  if (minQuantity == null || !Number.isFinite(minQuantity) || minQuantity <= 0) {
+    return null
+  }
+
+  if (listing.quantity >= minQuantity) return 100
+  if (listing.quantity > 0) {
+    return Math.round(Math.min(80, (listing.quantity / minQuantity) * 80))
+  }
+  return 0
+}
+
 export function calculateQualityScore(
   requirement: BuyerRequirement,
   listing: WasteListing,
 ): number | null {
-  const hasRequirementQuality = Boolean(requirement.preferred_quality?.trim())
-  const hasListingQuality = Boolean(
-    listing.condition || listing.contamination_level || listing.material_grade,
-  )
-
-  if (!hasRequirementQuality && !hasListingQuality) {
+  if (!isQualitySpecified(requirement)) {
     return null
   }
 
@@ -108,9 +177,7 @@ export function calculateQualityScore(
   const condition = normalize(listing.condition)
   const contamination = normalize(listing.contamination_level)
 
-  if (preferred === "any") {
-    score = 80
-  } else if (preferred && condition) {
+  if (preferred && condition) {
     if (preferred === condition || condition.includes(preferred) || preferred.includes(condition)) {
       score = 95
     } else if (preferred === "clean" && condition === "sorted") {
@@ -138,7 +205,7 @@ export function calculateQualityScore(
   return Math.round(Math.min(100, Math.max(0, score)))
 }
 
-/** Straight-line distance score using Haversine — not driving distance */
+/** Haversine distance score with tier bands — distant suppliers remain visible with lower scores. */
 export function calculateDistanceScore(
   requirement: BuyerRequirement,
   listing: WasteListing,
@@ -159,22 +226,72 @@ export function calculateDistanceScore(
     listing.longitude,
   )
 
-  if (requirement.max_distance_km != null && distanceKm > requirement.max_distance_km) {
-    return { score: 0, distanceKm }
-  }
+  let score = distanceKmToScore(distanceKm)
 
-  const scoringCap = requirement.max_distance_km ?? DEFAULT_MAX_DISTANCE_KM
-  const score = Math.round(Math.max(0, 100 - (distanceKm / scoringCap) * 100))
+  if (requirement.max_distance_km != null && distanceKm > requirement.max_distance_km) {
+    score = Math.min(score, 25)
+  }
 
   return { score, distanceKm }
 }
 
-/** Price compatibility — requires matching currency and compatible price/quantity units */
+export function calculateDistanceScoreFromCoords(
+  buyerLatitude: number,
+  buyerLongitude: number,
+  listing: WasteListing,
+): { score: number | null; distanceKm: number | null } {
+  if (listing.latitude == null || listing.longitude == null) {
+    return { score: null, distanceKm: null }
+  }
+
+  const distanceKm = haversineKm(
+    buyerLatitude,
+    buyerLongitude,
+    listing.latitude,
+    listing.longitude,
+  )
+
+  return { score: distanceKmToScore(distanceKm), distanceKm }
+}
+
+/** Text-based location signal when coordinates are unavailable. */
+export function calculateLocationTextScore(
+  preferredCity: string | null | undefined,
+  preferredState: string | null | undefined,
+  listing: WasteListing,
+): number | null {
+  const city = normalize(preferredCity)
+  const state = normalize(preferredState)
+  if (!city && !state) return null
+
+  const listingCity = normalize(listing.city)
+  const listingState = normalize(listing.state)
+  let score = 0
+  let parts = 0
+
+  if (city) {
+    parts += 1
+    if (listingCity.includes(city) || city.includes(listingCity)) {
+      score += 100
+    }
+  }
+
+  if (state) {
+    parts += 1
+    if (listingState.includes(state) || state.includes(listingState)) {
+      score += 100
+    }
+  }
+
+  if (parts === 0) return null
+  return Math.round(score / parts)
+}
+
 export function calculatePriceScore(
   requirement: BuyerRequirement,
   listing: WasteListing,
 ): number | null {
-  if (requirement.max_price == null || listing.asking_price == null) {
+  if (!isPriceSpecified(requirement) || listing.asking_price == null) {
     return null
   }
 
@@ -186,42 +303,70 @@ export function calculatePriceScore(
     return null
   }
 
-  if (listing.asking_price <= requirement.max_price) {
+  const maxPrice = requirement.max_price!
+
+  if (listing.asking_price <= maxPrice) {
     return 100
   }
 
-  const ratio = requirement.max_price / listing.asking_price
+  const ratio = maxPrice / listing.asking_price
   return Math.round(Math.max(0, Math.min(100, ratio * 100)))
 }
 
+export function calculateMarketplacePriceScore(
+  maxPrice: number | null | undefined,
+  listing: WasteListing,
+): number | null {
+  if (maxPrice == null || !Number.isFinite(maxPrice) || listing.asking_price == null) {
+    return null
+  }
+
+  if (listing.asking_price <= maxPrice) return 100
+  const ratio = maxPrice / listing.asking_price
+  return Math.round(Math.max(0, Math.min(100, ratio * 100)))
+}
+
+export function calculateVerificationScore(listing: WasteListing): number {
+  return listing.company?.verification_status === "verified" ? 100 : 40
+}
+
+export function calculateRecurringPreferenceScore(
+  recurringFilter: "true" | "false" | undefined,
+  listing: WasteListing,
+): number | null {
+  if (!recurringFilter) return null
+  const wantsRecurring = recurringFilter === "true"
+  return listing.recurring === wantsRecurring ? 100 : 35
+}
+
+/** Overall score uses all dimension weights; unspecified dimensions contribute 0 — never 100%. */
 export function calculateOverallMatch(breakdown: MatchScoreBreakdown): number {
-  const components: Array<{ score: number; weight: number }> = [
-    { score: breakdown.material, weight: MATCH_WEIGHTS.material },
-  ]
+  const weighted =
+    breakdown.material * MATCH_WEIGHTS.material +
+    (breakdown.quantity ?? 0) * MATCH_WEIGHTS.quantity +
+    (breakdown.quality ?? 0) * MATCH_WEIGHTS.quality +
+    (breakdown.distance ?? 0) * MATCH_WEIGHTS.distance +
+    (breakdown.price ?? 0) * MATCH_WEIGHTS.price
 
-  if (breakdown.quantity != null) {
-    components.push({ score: breakdown.quantity, weight: MATCH_WEIGHTS.quantity })
-  }
-  if (breakdown.quality != null) {
-    components.push({ score: breakdown.quality, weight: MATCH_WEIGHTS.quality })
-  }
-  if (breakdown.distance != null) {
-    components.push({ score: breakdown.distance, weight: MATCH_WEIGHTS.distance })
-  }
-  if (breakdown.price != null) {
-    components.push({ score: breakdown.price, weight: MATCH_WEIGHTS.price })
-  }
+  const totalWeight =
+    MATCH_WEIGHTS.material +
+    MATCH_WEIGHTS.quantity +
+    MATCH_WEIGHTS.quality +
+    MATCH_WEIGHTS.distance +
+    MATCH_WEIGHTS.price
 
-  const totalWeight = components.reduce((sum, part) => sum + part.weight, 0)
-  const weightedScore = components.reduce((sum, part) => sum + part.score * part.weight, 0)
-
-  return Math.round(weightedScore / totalWeight)
+  return Math.round(weighted / totalWeight)
 }
 
 export function buildMatchScoreBreakdown(
   requirement: BuyerRequirement,
   listing: WasteListing,
 ): { breakdown: MatchScoreBreakdown; overall: number; distanceKm: number | null } {
+  const quantityNotSpecified = !isQuantitySpecified(requirement)
+  const qualityNotSpecified = !isQualitySpecified(requirement)
+  const priceNotSpecified = !isPriceSpecified(requirement)
+  const distanceScoreable = isDistanceScoreable(requirement, listing)
+
   const material = calculateMaterialScore(requirement, listing)
   const quantity = calculateQuantityScore(requirement, listing)
   const quality = calculateQualityScore(requirement, listing)
@@ -234,8 +379,12 @@ export function buildMatchScoreBreakdown(
     quality,
     distance: distanceResult.score,
     price,
-    distance_unavailable: distanceResult.score == null,
-    price_unavailable: price == null,
+    quantity_not_specified: quantityNotSpecified,
+    quality_not_specified: qualityNotSpecified,
+    price_not_specified: priceNotSpecified,
+    quantity_unavailable: !quantityNotSpecified && quantity == null,
+    distance_unavailable: !distanceScoreable,
+    price_unavailable: !priceNotSpecified && price == null,
   }
 
   const overall = calculateOverallMatch(breakdown)
@@ -245,4 +394,26 @@ export function buildMatchScoreBreakdown(
     overall,
     distanceKm: distanceResult.distanceKm,
   }
+}
+
+export function hasMaterialRelevance(
+  requirement: BuyerRequirement,
+  listing: WasteListing,
+): boolean {
+  if (calculateMaterialScore(requirement, listing) > 0) return true
+
+  const query = combineSearchQueries(requirement.material_name)
+  if (!query) return false
+  return scoreKeywordOverlap(query, listingMaterialHaystack(listing)).matchedCount > 0
+}
+
+export function marketplaceListingHasRelevance(
+  searchText: string | null | undefined,
+  categoryId: string | null | undefined,
+  listing: WasteListing,
+): boolean {
+  if (categoryId && listing.category_id === categoryId) return true
+  const query = combineSearchQueries(searchText)
+  if (!query) return false
+  return scoreKeywordOverlap(query, listingMaterialHaystack(listing)).matchedCount > 0
 }

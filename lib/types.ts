@@ -152,6 +152,10 @@ export interface MatchScoreBreakdown {
   quality: number | null
   distance: number | null
   price: number | null
+  quantity_not_specified?: boolean
+  quality_not_specified?: boolean
+  price_not_specified?: boolean
+  quantity_unavailable?: boolean
   distance_unavailable?: boolean
   price_unavailable?: boolean
 }
@@ -210,6 +214,41 @@ export interface Transaction {
   listing?: WasteListing
   buyer?: Company
   supplier?: Company
+  outcome?: MaterialOutcome | null
+}
+
+export type MaterialOutcomeVerificationStatus =
+  | "buyer_reported"
+  | "supplier_confirmed"
+  | "verified"
+
+export type MaterialOutcomeType =
+  | "reused_directly"
+  | "repaired"
+  | "refurbished"
+  | "remanufactured"
+  | "recycled"
+  | "composted"
+  | "energy_recovery"
+  | "other"
+
+export interface MaterialOutcome {
+  id: string
+  transaction_id: string
+  buyer_company_id: string
+  supplier_company_id: string
+  outcome_type: MaterialOutcomeType
+  input_quantity: number
+  input_quantity_unit: string
+  recovered_quantity: number
+  recovered_quantity_unit: string
+  resulting_product: string | null
+  resulting_product_category: string | null
+  processing_method: string | null
+  notes: string | null
+  verification_status: MaterialOutcomeVerificationStatus
+  created_at: string
+  updated_at: string
 }
 
 export interface Conversation {

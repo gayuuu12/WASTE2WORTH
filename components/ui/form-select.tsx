@@ -5,20 +5,29 @@ export function FormSelect({
   name,
   label,
   defaultValue,
+  value,
+  onChange,
   placeholder,
   options,
   disabled,
   required,
 }: {
   id: string
-  name: string
+  name?: string
   label: string
   defaultValue?: string
+  value?: string
+  onChange?: (event: React.ChangeEvent<HTMLSelectElement>) => void
   placeholder?: string
   options: readonly string[] | readonly { value: string; label: string }[]
   disabled?: boolean
   required?: boolean
 }) {
+  const selectProps =
+    value !== undefined
+      ? { value, onChange }
+      : { defaultValue: defaultValue ?? "" }
+
   return (
     <div className="space-y-2">
       <label htmlFor={id} className="text-sm font-medium">
@@ -27,9 +36,9 @@ export function FormSelect({
       <select
         id={id}
         name={name}
-        defaultValue={defaultValue ?? ""}
         disabled={disabled}
         required={required}
+        {...selectProps}
         className={cn(
           "flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors",
           "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",

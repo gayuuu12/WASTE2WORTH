@@ -1,7 +1,10 @@
 import { NotificationList } from "@/components/notifications/notification-list"
+import { EmptyState } from "@/components/ui/empty-state"
+import { PageHeader } from "@/components/ui/page-header"
 import { requireCompleteProfile } from "@/lib/auth"
 import { getNotificationsForUser } from "@/lib/notifications/queries"
 import { createClient } from "@/lib/supabase/server"
+import { Bell } from "lucide-react"
 
 export const dynamic = "force-dynamic"
 
@@ -12,17 +15,17 @@ export default async function NotificationsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="space-y-2">
-        <h1 className="font-display text-3xl font-bold tracking-tight">Notifications</h1>
-        <p className="text-muted-foreground">
-          Updates on offers, transactions, and messages from your marketplace activity.
-        </p>
-      </div>
+      <PageHeader
+        title="Notifications"
+        description="Updates on offers, transactions, and messages from your marketplace activity."
+      />
 
       {notifications.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-10 text-center">
-          <p className="text-muted-foreground">No notifications yet.</p>
-        </div>
+        <EmptyState
+          title="You're all caught up"
+          description="New notifications about offers, transactions, and messages will appear here."
+          icon={<Bell className="size-5" aria-hidden />}
+        />
       ) : (
         <NotificationList notifications={notifications} />
       )}

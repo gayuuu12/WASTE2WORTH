@@ -27,6 +27,20 @@ function sortMatches(a: MatchView, b: MatchView) {
   const distB = b.distance_km ?? Number.POSITIVE_INFINITY
   if (distA !== distB) return distA - distB
 
+  const breakdownA = a.score_breakdown
+  const breakdownB = b.score_breakdown
+  const priceA = breakdownA?.price ?? -1
+  const priceB = breakdownB?.price ?? -1
+  if (priceB !== priceA) return priceB - priceA
+
+  const quantityA = breakdownA?.quantity ?? -1
+  const quantityB = breakdownB?.quantity ?? -1
+  if (quantityB !== quantityA) return quantityB - quantityA
+
+  const verifiedA = a.listing.company?.verification_status === "verified" ? 1 : 0
+  const verifiedB = b.listing.company?.verification_status === "verified" ? 1 : 0
+  if (verifiedB !== verifiedA) return verifiedB - verifiedA
+
   return new Date(b.listing.created_at).getTime() - new Date(a.listing.created_at).getTime()
 }
 

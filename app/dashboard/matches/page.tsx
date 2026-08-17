@@ -1,5 +1,7 @@
 import { MatchCard } from "@/components/matches/match-card"
 import { MatchFiltersForm } from "@/components/matches/match-filters"
+import { EmptyState } from "@/components/ui/empty-state"
+import { PageHeader } from "@/components/ui/page-header"
 import { requireCompleteProfile } from "@/lib/auth"
 import { getWasteCategories } from "@/lib/listings/categories"
 import {
@@ -18,6 +20,7 @@ import {
 import { canManageRequirements } from "@/lib/requirements/auth"
 import { canCreateListings } from "@/lib/listings/auth"
 import { createClient } from "@/lib/supabase/server"
+import { Sparkles } from "lucide-react"
 
 export const dynamic = "force-dynamic"
 
@@ -61,23 +64,22 @@ export default async function MatchesPage({
 
   return (
     <div className="space-y-8">
-      <div className="space-y-2">
-        <h1 className="font-display text-3xl font-bold tracking-tight">Matches</h1>
-        <p className="text-muted-foreground">
-          Deterministic matches scored from real listings and buyer requirements. Distance is
-          straight-line, not driving distance.
-        </p>
-      </div>
+      <PageHeader
+        title="Matches"
+        description="Scored matches between listings and buyer requirements. Distance is straight-line, not driving distance."
+      />
 
       <MatchFiltersForm key={filterKey} categories={categories} filters={filters} />
 
       {isBuyer ? (
         <section className="space-y-4">
-          <h2 className="font-display text-xl font-semibold">Matches for your requirements</h2>
+          <h2 className="font-display text-lg font-semibold">Matches for your requirements</h2>
           {buyerMatches.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border p-10 text-center">
-              <p className="text-muted-foreground">{emptyMessage}</p>
-            </div>
+            <EmptyState
+              title="No matches yet"
+              description={emptyMessage}
+              icon={<Sparkles className="size-5" aria-hidden />}
+            />
           ) : (
             <div className="space-y-4">
               {buyerMatches.map((match) => (
@@ -90,11 +92,15 @@ export default async function MatchesPage({
 
       {isSupplierRole ? (
         <section className="space-y-4">
-          <h2 className="font-display text-xl font-semibold">Buyer opportunities for your listings</h2>
+          <h2 className="font-display text-lg font-semibold">
+            Buyer opportunities for your listings
+          </h2>
           {supplierMatches.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border p-10 text-center">
-              <p className="text-muted-foreground">{emptyMessage}</p>
-            </div>
+            <EmptyState
+              title="No opportunities yet"
+              description={emptyMessage}
+              icon={<Sparkles className="size-5" aria-hidden />}
+            />
           ) : (
             <div className="space-y-4">
               {supplierMatches.map((match) => (
@@ -106,11 +112,10 @@ export default async function MatchesPage({
       ) : null}
 
       {!isBuyer && !isSupplierRole ? (
-        <div className="rounded-xl border border-dashed border-border p-10 text-center">
-          <p className="text-muted-foreground">
-            Matches are available for buyer and supplier company roles.
-          </p>
-        </div>
+        <EmptyState
+          title="Matches unavailable"
+          description="Matches are available for buyer and supplier company roles."
+        />
       ) : null}
     </div>
   )

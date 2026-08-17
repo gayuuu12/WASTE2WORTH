@@ -1,9 +1,12 @@
 import { OfferCard } from "@/components/offers/offer-card"
+import { EmptyState } from "@/components/ui/empty-state"
+import { PageHeader } from "@/components/ui/page-header"
 import { requireCompleteProfile } from "@/lib/auth"
 import { canCreateListings } from "@/lib/listings/auth"
 import { getIncomingOffers, getSentOffers } from "@/lib/offers/queries"
 import { canManageRequirements } from "@/lib/requirements/auth"
 import { createClient } from "@/lib/supabase/server"
+import { Handshake } from "lucide-react"
 
 export const dynamic = "force-dynamic"
 
@@ -21,20 +24,20 @@ export default async function OffersPage() {
 
   return (
     <div className="space-y-8">
-      <div className="space-y-2">
-        <h1 className="font-display text-3xl font-bold tracking-tight">Offers</h1>
-        <p className="text-muted-foreground">
-          Review incoming offers on your listings or track offers you have sent to suppliers.
-        </p>
-      </div>
+      <PageHeader
+        title="Offers"
+        description="Review incoming offers on your listings or track offers you have sent to suppliers."
+      />
 
       {isSupplier ? (
         <section className="space-y-4">
-          <h2 className="font-display text-xl font-semibold">Incoming offers</h2>
+          <h2 className="font-display text-lg font-semibold">Incoming offers</h2>
           {incomingOffers.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border p-10 text-center">
-              <p className="text-muted-foreground">No incoming offers yet.</p>
-            </div>
+            <EmptyState
+              title="No offers yet"
+              description="Offers from buyers will appear here when they respond to your listings."
+              icon={<Handshake className="size-5" aria-hidden />}
+            />
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
               {incomingOffers.map((offer) => (
@@ -47,13 +50,13 @@ export default async function OffersPage() {
 
       {isBuyer ? (
         <section className="space-y-4">
-          <h2 className="font-display text-xl font-semibold">My sent offers</h2>
+          <h2 className="font-display text-lg font-semibold">Sent offers</h2>
           {sentOffers.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border p-10 text-center">
-              <p className="text-muted-foreground">
-                You have not sent any offers yet. Browse matches to find listings.
-              </p>
-            </div>
+            <EmptyState
+              title="No sent offers"
+              description="Browse matches to find listings and submit your first offer."
+              icon={<Handshake className="size-5" aria-hidden />}
+            />
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
               {sentOffers.map((offer) => (
@@ -65,11 +68,10 @@ export default async function OffersPage() {
       ) : null}
 
       {!isBuyer && !isSupplier ? (
-        <div className="rounded-xl border border-dashed border-border p-10 text-center">
-          <p className="text-muted-foreground">
-            Offers are available for buyer and supplier company roles.
-          </p>
-        </div>
+        <EmptyState
+          title="Offers unavailable"
+          description="Offers are available for buyer and supplier company roles."
+        />
       ) : null}
     </div>
   )

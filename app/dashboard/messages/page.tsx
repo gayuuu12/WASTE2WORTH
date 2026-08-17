@@ -1,4 +1,6 @@
 import { ConversationCard } from "@/components/messages/conversation-card"
+import { EmptyState } from "@/components/ui/empty-state"
+import { PageHeader } from "@/components/ui/page-header"
 import { requireCompleteProfile } from "@/lib/auth"
 import {
   getCompanyNamesByIds,
@@ -6,6 +8,7 @@ import {
   getLatestMessagesByConversation,
 } from "@/lib/messages/queries"
 import { createClient } from "@/lib/supabase/server"
+import { MessageSquare } from "lucide-react"
 
 export const dynamic = "force-dynamic"
 
@@ -28,17 +31,17 @@ export default async function MessagesPage() {
 
   return (
     <div className="space-y-8">
-      <div className="space-y-2">
-        <h1 className="font-display text-3xl font-bold tracking-tight">Messages</h1>
-        <p className="text-muted-foreground">
-          Conversations with buyers and suppliers on your transactions.
-        </p>
-      </div>
+      <PageHeader
+        title="Messages"
+        description="Business conversations with buyers and suppliers on your deals."
+      />
 
       {conversations.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-10 text-center">
-          <p className="text-muted-foreground">No conversations yet.</p>
-        </div>
+        <EmptyState
+          title="No conversations yet"
+          description="Messages related to your transactions will appear here."
+          icon={<MessageSquare className="size-5" aria-hidden />}
+        />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {conversations.map((conversation) => {

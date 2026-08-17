@@ -1,4 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import {
+  hasActiveMarketplaceFilters,
+  rankMarketplaceListings,
+  type MarketplaceRecommendation,
+  type MarketplaceSearchContext,
+} from "@/lib/listings/marketplace-recommendations"
 import type { MarketplaceFilters } from "@/lib/validations/listings"
 import type { WasteListing } from "@/lib/types"
 
@@ -77,84 +83,62 @@ export async function getPublicListing(
 export async function getMarketplaceListings(
   supabase: SupabaseClient,
   filters: MarketplaceFilters,
-) {
-  let query = supabase
+  options?: {
+    buyerLatitude?: number | null
+    buyerLongitude?: number | null
+  },
+): Promise<{
+  strong: MarketplaceRecommendation[]
+  alternatives: MarketplaceRecommendation[]
+  hasActiveFilters: boolean
+}> {
+  const { data, error } = await supabase
     .from("waste_listings")
     .select(`${LISTING_SELECT}`)
     .eq("status", "active")
-    .order("created_at", { ascending: false })
-
-  if (filters.category?.trim()) {
-    query = query.eq("category_id", filters.category.trim())
-  }
-
-  if (filters.material?.trim()) {
-    query = query.ilike("material_name", `%${filters.material.trim()}%`)
-  }
-
-  if (filters.city?.trim()) {
-    query = query.ilike("city", `%${filters.city.trim()}%`)
-  }
-
-  if (filters.state?.trim()) {
-    query = query.ilike("state", `%${filters.state.trim()}%`)
-  }
-
-  if (filters.minQuantity?.trim()) {
-    const minQty = Number(filters.minQuantity)
-    if (Number.isFinite(minQty)) {
-      query = query.gte("quantity", minQty)
-    }
-  }
-
-  if (filters.maxPrice?.trim()) {
-    const maxPrice = Number(filters.maxPrice)
-    if (Number.isFinite(maxPrice)) {
-      query = query.lte("asking_price", maxPrice)
-    }
-  }
-
-  if (filters.recurring === "true") {
-    query = query.eq("recurring", true)
-  } else if (filters.recurring === "false") {
-    query = query.eq("recurring", false)
-  }
-
-  const { data, error } = await query
 
   if (error) {
     throw new Error(error.message)
   }
 
-  let listings = (data ?? []) as WasteListing[]
-
-  if (filters.q?.trim()) {
-    const q = filters.q.trim().toLowerCase()
-    listings = listings.filter((listing) => {
-      const haystack = [
-        listing.title,
-        listing.description,
-        listing.material_name,
-        listing.city,
-        listing.state,
-        listing.company?.name,
-        listing.category?.name,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-      return haystack.includes(q)
-    })
+  const listings = (data ?? []) as WasteListing[]
+  const context: MarketplaceSearchContext = {
+    filters,
+    buyerLatitude: options?.buyerLatitude,
+    buyerLongitude: options?.buyerLongitude,
   }
 
-  if (filters.verified === "true") {
-    listings = listings.filter(
-      (listing) => listing.company?.verification_status === "verified",
-    )
-  }
-
-  return listings
+  return rankMarketplaceListings(listings, context)
 }
+
+/** Flat ranked listing list for callers that only need ordered listings. */
+export async function getRankedMarketplaceListings(
+  supabase: SupabaseClient,
+  filters: MarketplaceFilters,
+  options?: {
+    buyerLatitude?: number | null
+    buyerLongitude?: number | null
+  },
+): Promise<MarketplaceRecommendation[]> {
+  const results = await getMarketplaceListings(supabase, filters, options)
+  if (!results.hasActiveFilters) {
+    return results.strong
+  }
+  return [...results.strong, ...results.alternatives]
+}
+
+export function marketplaceResultsAreEmpty(results: {
+  strong: MarketplaceRecommendation[]
+  alternatives: MarketplaceRecommendation[]
+  hasActiveFilters: boolean
+}) {
+  if (!results.hasActiveFilters) {
+    return results.strong.length === 0
+  }
+  return results.strong.length === 0 && results.alternatives.length === 0
+}
+
+export { hasActiveMarketplaceFilters }
 
 export function getPrimaryImage(listing: WasteListing) {
   return listing.images?.[0] ?? null

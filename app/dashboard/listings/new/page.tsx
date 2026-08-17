@@ -15,12 +15,19 @@ export default async function NewListingPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">New listing</h1>
-          <p className="text-muted-foreground">Publish surplus material to the marketplace</p>
+          <h1 className="font-display text-3xl font-bold tracking-tight">Manual Listing</h1>
+          <p className="text-muted-foreground">
+            Publish surplus material to the marketplace using the original form
+          </p>
         </div>
-        <Link href="/dashboard/listings" className={cn(buttonVariants({ variant: "outline" }))}>
-          Back to listings
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/dashboard/listings/ai-new" className={cn(buttonVariants({ variant: "outline" }))}>
+            AI Smart Listing
+          </Link>
+          <Link href="/dashboard/listings" className={cn(buttonVariants({ variant: "ghost" }))}>
+            Back to listings
+          </Link>
+        </div>
       </div>
 
       <ListingForm

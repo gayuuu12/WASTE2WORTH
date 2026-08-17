@@ -1,7 +1,10 @@
 import { TransactionCard } from "@/components/transactions/transaction-card"
+import { EmptyState } from "@/components/ui/empty-state"
+import { PageHeader } from "@/components/ui/page-header"
 import { requireCompleteProfile } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { getCompanyTransactions } from "@/lib/transactions/queries"
+import { ArrowLeftRight } from "lucide-react"
 
 export const dynamic = "force-dynamic"
 
@@ -19,16 +22,14 @@ export default async function TransactionsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="space-y-2">
-        <h1 className="font-display text-3xl font-bold tracking-tight">Transactions</h1>
-        <p className="text-muted-foreground">
-          Accepted offers become transactions. Both parties can track fulfillment here.
-        </p>
-      </div>
+      <PageHeader
+        title="Transactions"
+        description="Accepted offers become transactions. Both parties can track fulfillment here."
+      />
 
       {buyerTransactions.length > 0 ? (
         <section className="space-y-4">
-          <h2 className="font-display text-xl font-semibold">Purchases</h2>
+          <h2 className="font-display text-lg font-semibold">Purchases</h2>
           <div className="grid gap-4 lg:grid-cols-2">
             {buyerTransactions.map((transaction) => (
               <TransactionCard
@@ -43,7 +44,7 @@ export default async function TransactionsPage() {
 
       {supplierTransactions.length > 0 ? (
         <section className="space-y-4">
-          <h2 className="font-display text-xl font-semibold">Sales</h2>
+          <h2 className="font-display text-lg font-semibold">Sales</h2>
           <div className="grid gap-4 lg:grid-cols-2">
             {supplierTransactions.map((transaction) => (
               <TransactionCard
@@ -57,11 +58,11 @@ export default async function TransactionsPage() {
       ) : null}
 
       {transactions.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-10 text-center">
-          <p className="text-muted-foreground">
-            No transactions yet. Accept an offer to create a transaction.
-          </p>
-        </div>
+        <EmptyState
+          title="No transactions yet"
+          description="Accept an offer to create a transaction and track fulfillment here."
+          icon={<ArrowLeftRight className="size-5" aria-hidden />}
+        />
       ) : null}
     </div>
   )

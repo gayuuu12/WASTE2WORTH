@@ -1,13 +1,8 @@
-import Link from "next/link"
-import { BrandLogo } from "@/components/brand-logo"
-import { SignOutButton } from "@/components/dashboard/sign-out-button"
-import { NotificationNavLink } from "@/components/notifications/notification-nav-link"
-import { buttonVariants } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
-import type { Company } from "@/lib/types"
+import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar"
 import { canCreateListings } from "@/lib/listings/auth"
-import { canManageRequirements } from "@/lib/requirements/auth"
 import { canViewOffers } from "@/lib/offers/auth"
+import { canManageRequirements } from "@/lib/requirements/auth"
+import type { Company } from "@/lib/types"
 
 export function DashboardShell({
   children,
@@ -24,56 +19,21 @@ export function DashboardShell({
   const canRequire = canManageRequirements(company)
   const showOffers = canViewOffers(company)
 
-  const navItems = [
-    { href: "/dashboard", label: "Overview" },
-    ...(canList ? [{ href: "/dashboard/listings", label: "My listings" }] : []),
-    ...(canRequire ? [{ href: "/dashboard/requirements", label: "My requirements" }] : []),
-    { href: "/dashboard/matches", label: "Matches" },
-    ...(showOffers ? [{ href: "/dashboard/offers", label: "Offers" }] : []),
-    { href: "/dashboard/transactions", label: "Transactions" },
-    { href: "/dashboard/messages", label: "Messages" },
-    { href: "/marketplace", label: "Marketplace" },
-  ]
-
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <BrandLogo />
-          <div className="flex flex-wrap items-center gap-2">
-            {canList ? (
-              <Link href="/dashboard/listings/new" className={cn(buttonVariants({ size: "sm" }))}>
-                New listing
-              </Link>
-            ) : null}
-            {canRequire ? (
-              <Link
-                href="/dashboard/requirements/new"
-                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-              >
-                New requirement
-              </Link>
-            ) : null}
-            <SignOutButton />
-          </div>
-        </div>
-        <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-6 pb-3">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              {item.label}
-            </Link>
-          ))}
-          <NotificationNavLink
-            initialUnreadCount={unreadNotificationCount}
-            userId={userId}
-          />
-        </nav>
-      </header>
-      <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+    <div className="flex min-h-screen bg-background">
+      <DashboardSidebar
+        company={company}
+        canList={canList}
+        canRequire={canRequire}
+        showOffers={showOffers}
+        unreadNotificationCount={unreadNotificationCount}
+        userId={userId}
+      />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          <div className="mx-auto max-w-6xl">{children}</div>
+        </main>
+      </div>
     </div>
   )
 }

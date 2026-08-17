@@ -65,6 +65,12 @@ export function haversineKm(
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
+export function formatDistanceKm(distanceKm: number | null | undefined) {
+  if (distanceKm == null || !Number.isFinite(distanceKm)) return ""
+  const rounded = distanceKm < 10 ? Math.round(distanceKm * 10) / 10 : Math.round(distanceKm)
+  return `${rounded.toLocaleString("en-IN")} km`
+}
+
 export function titleCase(s: string | null | undefined) {
   if (!s) return ""
   return s

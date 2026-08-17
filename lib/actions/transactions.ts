@@ -83,7 +83,7 @@ export async function updateTransactionStatusAction(
       ctx.company.id,
     )
 
-    revalidatePath("/dashboard/transactions")
+    revalidatePath("/dashboard/impact")
     revalidatePath(`/dashboard/transactions/${transaction.id}`)
 
     redirect(`/dashboard/transactions/${transaction.id}?updated=1`)

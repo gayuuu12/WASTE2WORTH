@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { MATCH_STORE_MIN_SCORE } from "@/lib/matching/constants"
-import { buildMatchScoreBreakdown } from "@/lib/matching/scores"
+import { buildMatchScoreBreakdown, hasMaterialRelevance } from "@/lib/matching/scores"
 import type { BuyerRequirement, WasteListing } from "@/lib/types"
 
 const LISTING_SELECT = `
@@ -55,7 +55,7 @@ export async function generateMatchesForRequirement(
   for (const listing of listings) {
     const { breakdown, overall, distanceKm } = buildMatchScoreBreakdown(requirement, listing)
 
-    if (overall < MATCH_STORE_MIN_SCORE || breakdown.material <= 0) {
+    if (overall < MATCH_STORE_MIN_SCORE || !hasMaterialRelevance(requirement, listing)) {
       await supabase
         .from("matches")
         .delete()

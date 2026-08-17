@@ -1,3 +1,4 @@
+import { AssistantFloatingButton } from "@/components/ai/assistant-chat"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { requireCompleteProfile } from "@/lib/auth"
 import { getUnreadNotificationCount } from "@/lib/notifications/queries"
@@ -22,6 +23,7 @@ export default async function DashboardLayout({
       userId={ctx.user.id}
     >
       {children}
+      <AssistantFloatingButton role={ctx.company.role} />
     </DashboardShell>
   )
 }

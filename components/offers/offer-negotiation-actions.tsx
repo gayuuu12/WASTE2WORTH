@@ -77,11 +77,16 @@ export function OfferNegotiationActions({
         : offer.id
 
   return (
-    <div className="space-y-4 rounded-lg border border-border p-4">
-      <h2 className="font-display text-lg font-semibold">Actions</h2>
+    <div className="space-y-6 rounded-lg border border-border bg-card p-5">
+      <div>
+        <h2 className="font-display text-lg font-semibold">Negotiation</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Review the offer and choose how to respond.
+        </p>
+      </div>
 
       {buyerCanRespondToCounter && latestCounter ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
           The supplier sent a counteroffer for{" "}
           {latestCounter.quantity} {latestCounter.quantity_unit} at{" "}
           {latestCounter.currency} {latestCounter.offered_price}.
@@ -91,21 +96,11 @@ export function OfferNegotiationActions({
       <div className="flex flex-wrap gap-2">
         <form action={acceptAction}>
           <input type="hidden" name="offerId" value={actionOfferId} />
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending} className="min-h-11">
             {acceptPending ? (
               <Loader2 className="mr-2 size-4 animate-spin" />
             ) : null}
             {buyerCanRespondToCounter ? "Accept counter" : "Accept offer"}
-          </Button>
-        </form>
-
-        <form action={rejectAction}>
-          <input type="hidden" name="offerId" value={actionOfferId} />
-          <Button type="submit" variant="outline" disabled={pending}>
-            {rejectPending ? (
-              <Loader2 className="mr-2 size-4 animate-spin" />
-            ) : null}
-            {buyerCanRespondToCounter ? "Reject counter" : "Reject offer"}
           </Button>
         </form>
 
@@ -114,15 +109,30 @@ export function OfferNegotiationActions({
             type="button"
             variant="secondary"
             disabled={pending}
+            className="min-h-11"
             onClick={() => setShowCounterForm((value) => !value)}
           >
             Counter offer
           </Button>
         ) : null}
+
+        <form action={rejectAction} className="ml-auto">
+          <input type="hidden" name="offerId" value={actionOfferId} />
+          <Button type="submit" variant="outline" disabled={pending} className="min-h-11 text-destructive hover:text-destructive">
+            {rejectPending ? (
+              <Loader2 className="mr-2 size-4 animate-spin" />
+            ) : null}
+            {buyerCanRespondToCounter ? "Reject counter" : "Reject offer"}
+          </Button>
+        </form>
       </div>
 
       {supplierCanRespond && showCounterForm ? (
-        <form action={counterAction} className="space-y-4 border-t border-border pt-4">
+        <form
+          action={counterAction}
+          className="space-y-4 rounded-lg border border-dashed border-border bg-muted/20 p-4"
+        >
+          <h3 className="font-medium">Submit counteroffer</h3>
           <input type="hidden" name="offerId" value={offer.id} />
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
@@ -163,7 +173,7 @@ export function OfferNegotiationActions({
               placeholder="Explain your counter terms."
             />
           </div>
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending} className="min-h-11">
             {counterPending ? (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />

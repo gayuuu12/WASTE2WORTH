@@ -41,7 +41,7 @@ export function RequirementCard({ requirement }: { requirement: BuyerRequirement
         <div className="flex flex-row flex-wrap items-start gap-2 sm:flex-col">
           <Link
             href={`/dashboard/requirements/${requirement.id}`}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            className={cn(buttonVariants({ size: "sm" }))}
           >
             View
           </Link>

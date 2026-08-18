@@ -11,6 +11,8 @@ export type PriceCompatibilityFilter = "any" | "compatible" | "incompatible"
 export type ParsedMatchFilters = {
   material?: string
   category?: string
+  requirementId?: string
+  listingId?: string
   minScore?: number
   maxDistance?: number
   priceCompatibility?: PriceCompatibilityFilter
@@ -38,6 +40,16 @@ export function parseMatchFiltersFromSearchParams(
   const category = readParam(params, "category")?.trim()
   if (category && z.string().uuid().safeParse(category).success) {
     filters.category = category
+  }
+
+  const requirementId = readParam(params, "requirementId")?.trim()
+  if (requirementId && z.string().uuid().safeParse(requirementId).success) {
+    filters.requirementId = requirementId
+  }
+
+  const listingId = readParam(params, "listingId")?.trim()
+  if (listingId && z.string().uuid().safeParse(listingId).success) {
+    filters.listingId = listingId
   }
 
   const minScoreRaw = readParam(params, "minScore")?.trim()
@@ -82,6 +94,8 @@ export function matchFiltersToSearchParams(filters: ParsedMatchFilters): URLSear
 
   if (filters.material) params.set("material", filters.material)
   if (filters.category) params.set("category", filters.category)
+  if (filters.requirementId) params.set("requirementId", filters.requirementId)
+  if (filters.listingId) params.set("listingId", filters.listingId)
   if (filters.minScore != null) params.set("minScore", String(filters.minScore))
   if (filters.maxDistance != null) params.set("maxDistance", String(filters.maxDistance))
   if (filters.priceCompatibility && filters.priceCompatibility !== "any") {
@@ -97,10 +111,17 @@ export function serializeMatchFilters(filters: ParsedMatchFilters): string {
   return matchFiltersToSearchParams(filters).toString()
 }
 
+export function matchesPageHref(filters: ParsedMatchFilters = {}): string {
+  const query = serializeMatchFilters(filters)
+  return query ? `/dashboard/matches?${query}` : "/dashboard/matches"
+}
+
 export function hasActiveMatchFilters(filters: ParsedMatchFilters): boolean {
   return Boolean(
     filters.material ||
       filters.category ||
+      filters.requirementId ||
+      filters.listingId ||
       filters.minScore != null ||
       filters.maxDistance != null ||
       (filters.priceCompatibility && filters.priceCompatibility !== "any") ||
@@ -109,10 +130,31 @@ export function hasActiveMatchFilters(filters: ParsedMatchFilters): boolean {
   )
 }
 
+function isPriceCompatible(match: MatchForFiltering): boolean {
+  const breakdown = (match.score_breakdown ?? {}) as MatchScoreBreakdown
+  if (breakdown.price_unavailable) return false
+  if (breakdown.price_not_specified) return true
+  return breakdown.price != null && breakdown.price >= 70
+}
+
+function isPriceIncompatible(match: MatchForFiltering): boolean {
+  const breakdown = (match.score_breakdown ?? {}) as MatchScoreBreakdown
+  if (breakdown.price_unavailable) return true
+  if (breakdown.price_not_specified) return false
+  return breakdown.price != null && breakdown.price < 70
+}
+
 export function matchPassesFilters(match: MatchForFiltering, filters: ParsedMatchFilters): boolean {
   const listing = match.listing
   const requirement = match.requirement
-  const breakdown = (match.score_breakdown ?? {}) as MatchScoreBreakdown
+
+  if (filters.requirementId && match.requirement_id !== filters.requirementId) {
+    return false
+  }
+
+  if (filters.listingId && match.listing_id !== filters.listingId) {
+    return false
+  }
 
   if (filters.material) {
     const needle = filters.material.toLowerCase()
@@ -142,12 +184,12 @@ export function matchPassesFilters(match: MatchForFiltering, filters: ParsedMatc
     }
   }
 
-  if (filters.priceCompatibility === "compatible") {
-    if (breakdown.price_unavailable || breakdown.price == null) return false
+  if (filters.priceCompatibility === "compatible" && !isPriceCompatible(match)) {
+    return false
   }
 
-  if (filters.priceCompatibility === "incompatible") {
-    if (!breakdown.price_unavailable) return false
+  if (filters.priceCompatibility === "incompatible" && !isPriceIncompatible(match)) {
+    return false
   }
 
   if (filters.city) {
@@ -169,4 +211,8 @@ export function matchPassesFilters(match: MatchForFiltering, filters: ParsedMatc
   }
 
   return true
+}
+
+export function isActiveMatchRecord(match: MatchForFiltering): boolean {
+  return match.requirement.status === "active" && match.listing.status === "active"
 }

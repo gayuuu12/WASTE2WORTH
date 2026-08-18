@@ -16,7 +16,7 @@ export default async function RequirementsPage() {
     return (
       <div className="space-y-4">
         <PageHeader
-          title="Requirements"
+          title="My Requirements"
           description="Only buyer and dual-role companies can create material requirements."
         />
         <Link href="/dashboard" className={cn(buttonVariants({ variant: "outline" }))}>
@@ -31,23 +31,23 @@ export default async function RequirementsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Requirements"
-        description="Tell Waste2Worth what material you need and discover matching listings."
+        title="My Requirements"
+        description="Tell Waste2Worth what material you need — matching suppliers appear on each requirement."
       >
         <Link href="/dashboard/requirements/new" className={cn(buttonVariants())}>
           <Plus className="mr-2 size-4" aria-hidden />
-          Add requirement
+          New Requirement
         </Link>
       </PageHeader>
 
       {requirements.length === 0 ? (
         <EmptyState
           title="No requirements yet"
-          description="Tell Waste2Worth what material you need."
+          description="Create a requirement and matching supplier listings will appear automatically."
           icon={<ClipboardList className="size-5" aria-hidden />}
         >
           <Link href="/dashboard/requirements/new" className={cn(buttonVariants())}>
-            Add requirement
+            New Requirement
           </Link>
         </EmptyState>
       ) : (

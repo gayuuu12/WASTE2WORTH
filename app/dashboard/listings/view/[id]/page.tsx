@@ -33,10 +33,10 @@ export default async function BuyerListingViewPage({
   return (
     <div className="space-y-6">
       <Link
-        href="/dashboard/matches"
+        href="/marketplace"
         className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
       >
-        ← Back to matches
+        ← Back to Marketplace
       </Link>
       <ListingDetailView listing={listing} mode="buyer" canMakeOffer={canMakeOffer} />
     </div>

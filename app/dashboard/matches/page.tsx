@@ -61,13 +61,24 @@ export default async function MatchesPage({
     : []
 
   const emptyMessage = emptyMatchesMessage(filtersActive)
+  const scopedLabel = filters.requirementId
+    ? "Showing Smart Matches for one requirement."
+    : filters.listingId
+      ? "Showing Buyer Opportunities for one listing."
+      : null
 
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Matches"
+        title={isBuyer && isSupplierRole ? "Matches & Opportunities" : isBuyer ? "Smart Matches" : "Buyer Opportunities"}
         description="Scored matches between listings and buyer requirements. Distance is straight-line, not driving distance."
       />
+
+      {scopedLabel ? (
+        <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+          {scopedLabel}
+        </div>
+      ) : null}
 
       <MatchFiltersForm key={filterKey} categories={categories} filters={filters} />
 

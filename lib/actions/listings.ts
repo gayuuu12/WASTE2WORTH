@@ -11,6 +11,7 @@ import {
   type UploadedImageRef,
 } from "@/lib/listings/storage"
 import { listingFormSchema } from "@/lib/validations/listings"
+import { regenerateMatchesForListing } from "@/lib/matching/engine"
 import { createClient } from "@/lib/supabase/server"
 import type { ListingStatus } from "@/lib/types"
 
@@ -229,7 +230,13 @@ export async function createListingAction(
 
   revalidatePath("/dashboard")
   revalidatePath("/dashboard/listings")
+  revalidatePath("/dashboard/matches")
   revalidatePath("/marketplace")
+
+  if (status === "active") {
+    await regenerateMatchesForListing(supabase, listingId!, status)
+  }
+
   redirect(`/dashboard/listings/${listingId}`)
 }
 
@@ -302,7 +309,11 @@ export async function updateListingAction(
   revalidatePath("/dashboard")
   revalidatePath("/dashboard/listings")
   revalidatePath(`/dashboard/listings/${listingId}`)
+  revalidatePath("/dashboard/matches")
   revalidatePath("/marketplace")
+
+  await regenerateMatchesForListing(supabase, listingId, keepStatus)
+
   redirect(`/dashboard/listings/${listingId}`)
 }
 
@@ -328,8 +339,11 @@ export async function toggleListingStatusAction(listingId: string) {
     return { error: error.message }
   }
 
+  await regenerateMatchesForListing(supabase, listingId, nextStatus)
+
   revalidatePath("/dashboard/listings")
   revalidatePath(`/dashboard/listings/${listingId}`)
+  revalidatePath("/dashboard/matches")
   revalidatePath("/marketplace")
   revalidatePath("/dashboard")
 

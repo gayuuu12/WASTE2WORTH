@@ -46,6 +46,7 @@ function requirementPayload(
   userId: string,
   status: RequirementStatus,
   coords: { latitude: number | null; longitude: number | null },
+  notes: string | null = null,
 ): BuyerRequirementInsert {
   return {
     buyer_company_id: companyId,
@@ -69,7 +70,7 @@ function requirementPayload(
     longitude: coords.longitude,
     recurring: data.recurring,
     required_by: data.requiredBy || null,
-    notes: null,
+    notes,
     status,
   }
 }
@@ -163,6 +164,7 @@ export async function updateRequirementAction(
       latitude: ctx.company.latitude,
       longitude: ctx.company.longitude,
     },
+    existing.notes,
   )
 
   const { buyer_company_id: _b, created_by: _c, ...updates } = fullPayload

@@ -82,7 +82,14 @@ export function ListingDetailView({
             {listing.material_grade ? (
               <p><span className="text-muted-foreground">Grade:</span> {listing.material_grade}</p>
             ) : null}
-            <p><span className="text-muted-foreground">Quantity:</span> {formatQuantity(listing.quantity, listing.quantity_unit)}</p>
+            <p>
+              <span className="text-muted-foreground">
+                {listing.status === "active" ? "Available:" : "Quantity:"}
+              </span>{" "}
+              {listing.status === "sold"
+                ? `Sold out (${formatQuantity(listing.quantity, listing.quantity_unit)})`
+                : formatQuantity(listing.quantity, listing.quantity_unit)}
+            </p>
             {listing.minimum_order_quantity ? (
               <p><span className="text-muted-foreground">MOQ:</span> {formatQuantity(listing.minimum_order_quantity, listing.quantity_unit)}</p>
             ) : null}

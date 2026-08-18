@@ -1,7 +1,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import type { WasteListing } from "@/lib/types"
-import { formatDate, formatMoney, formatQuantity, titleCase } from "@/lib/format"
+import { formatDate, formatMoney, formatQuantity } from "@/lib/format"
 import { getPrimaryImage } from "@/lib/listings/queries"
 import { ListingStatusBadge } from "@/components/listings/listing-status-badge"
 import { ListingRowActions } from "@/components/listings/listing-row-actions"
@@ -38,7 +38,10 @@ export function MyListingCard({ listing }: { listing: WasteListing }) {
           </div>
           <p className="text-sm text-muted-foreground">{listing.material_name}</p>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-            <span>{formatQuantity(listing.quantity, listing.quantity_unit)}</span>
+            <span>
+              {listing.status === "active" ? "Available:" : "Qty:"}{" "}
+              {formatQuantity(listing.quantity, listing.quantity_unit)}
+            </span>
             <span>{formatMoney(listing.asking_price, listing.currency)}</span>
             <span className="text-muted-foreground">{formatDate(listing.created_at)}</span>
           </div>
@@ -50,7 +53,7 @@ export function MyListingCard({ listing }: { listing: WasteListing }) {
         <div className="flex flex-row flex-wrap items-start gap-2 border-t border-border p-4 sm:flex-col sm:border-t-0 sm:border-l">
           <Link
             href={`/dashboard/listings/${listing.id}`}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            className={cn(buttonVariants({ size: "sm" }))}
           >
             View
           </Link>

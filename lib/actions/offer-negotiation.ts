@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { isRedirectError } from "next/dist/client/components/redirect-error"
+import { acceptOfferCommitInventory } from "@/lib/listings/inventory"
+import { regenerateMatchesForListing } from "@/lib/matching/engine"
 import {
   canBuyerRespondToCounter,
   canSupplierRespondToOffer,
@@ -14,10 +16,6 @@ import {
   counterOfferSchema,
   offerActionSchema,
 } from "@/lib/validations/offers"
-import {
-  createTransactionFromOffer,
-  getTransactionForOffer,
-} from "@/lib/transactions/queries"
 import {
   notifyCounterAccepted,
   notifyCounterRejected,
@@ -40,54 +38,26 @@ async function loadOfferForCompany(offerId: string, companyId: string) {
   return { supabase, offer }
 }
 
-async function resolveMaterialName(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  offer: Awaited<ReturnType<typeof getOfferForParticipant>>,
-) {
-  if (offer?.listing?.material_name) {
-    return offer.listing.material_name
-  }
-
-  const { data, error } = await supabase
-    .from("waste_listings")
-    .select("material_name")
-    .eq("id", offer!.listing_id)
-    .maybeSingle()
-
-  if (error || !data?.material_name) {
-    throw new Error("Listing material could not be resolved for this transaction.")
-  }
-
-  return data.material_name
+function revalidateListingPaths(listingId: string) {
+  revalidatePath("/marketplace")
+  revalidatePath("/dashboard/listings")
+  revalidatePath(`/dashboard/listings/${listingId}`)
+  revalidatePath(`/dashboard/listings/view/${listingId}`)
+  revalidatePath("/dashboard/matches")
+  revalidatePath("/dashboard/requirements")
 }
 
 async function acceptOfferAndCreateTransaction(
   supabase: Awaited<ReturnType<typeof createClient>>,
   offer: NonNullable<Awaited<ReturnType<typeof getOfferForParticipant>>>,
 ) {
-  const existing = await getTransactionForOffer(supabase, offer.id)
-  if (existing) {
-    redirect(`/dashboard/transactions/${existing.id}`)
+  const commit = await acceptOfferCommitInventory(supabase, offer.id)
+
+  if (commit.alreadyCommitted) {
+    redirect(`/dashboard/transactions/${commit.transactionId}`)
   }
 
-  const { data: updated, error: updateError } = await supabase
-    .from("offers")
-    .update({ status: "accepted" })
-    .eq("id", offer.id)
-    .eq("status", "pending")
-    .select("id")
-    .maybeSingle()
-
-  if (updateError) {
-    throw new Error(updateError.message)
-  }
-
-  if (!updated) {
-    throw new Error("This offer is no longer pending and cannot be accepted.")
-  }
-
-  const materialName = await resolveMaterialName(supabase, offer)
-  const transactionId = await createTransactionFromOffer(supabase, offer, materialName)
+  await regenerateMatchesForListing(supabase, commit.listingId, commit.newStatus)
 
   if (offer.is_counter) {
     await notifyCounterAccepted(supabase, offer)
@@ -98,8 +68,9 @@ async function acceptOfferAndCreateTransaction(
   revalidatePath("/dashboard/offers")
   revalidatePath(`/dashboard/offers/${offer.id}`)
   revalidatePath("/dashboard/transactions")
+  revalidateListingPaths(commit.listingId)
 
-  redirect(`/dashboard/transactions/${transactionId}?created=1`)
+  redirect(`/dashboard/transactions/${commit.transactionId}?created=1`)
 }
 
 export async function acceptOfferAction(
@@ -219,9 +190,27 @@ export async function counterOfferAction(
       return { error: "You cannot counter this offer." }
     }
 
-    if (offer.listing && parsed.data.quantity > offer.listing.quantity) {
+    const { data: listingRow, error: listingError } = await supabase
+      .from("waste_listings")
+      .select("quantity, quantity_unit, status")
+      .eq("id", offer.listing_id)
+      .eq("status", "active")
+      .maybeSingle()
+
+    if (listingError) {
+      return { error: listingError.message }
+    }
+
+    if (!listingRow) {
+      return { error: "Listing is no longer available." }
+    }
+
+    if (parsed.data.quantity > listingRow.quantity) {
+      const formatted = listingRow.quantity.toLocaleString("en-IN", {
+        maximumFractionDigits: 2,
+      })
       return {
-        error: `Counter quantity cannot exceed listing quantity (${offer.listing.quantity} ${offer.listing.quantity_unit}).`,
+        error: `Only ${formatted} ${listingRow.quantity_unit} is currently available.`,
       }
     }
 

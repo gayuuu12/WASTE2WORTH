@@ -33,8 +33,8 @@ export default async function MyListingsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Listings"
-        description="Manage the materials your company has available."
+        title="My Listings"
+        description="Manage your materials — matching buyers appear on each active listing."
       >
         <Link href="/dashboard/listings/new" className={cn(buttonVariants())}>
           <Plus className="mr-2 size-4" aria-hidden />

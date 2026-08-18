@@ -123,13 +123,6 @@ export function RequirementDetailView({ requirement }: { requirement: BuyerRequi
           </CardContent>
         </Card>
       </div>
-
-      <Link
-        href="/dashboard/matches"
-        className={cn(buttonVariants({ variant: "outline" }))}
-      >
-        View matches for this requirement
-      </Link>
     </div>
   )
 }

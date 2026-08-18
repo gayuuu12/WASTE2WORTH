@@ -64,12 +64,19 @@ export function MatchFiltersForm({
     const state = String(formData.get("state") ?? "").trim()
     if (state) nextFilters.state = state
 
+    if (filters.requirementId) nextFilters.requirementId = filters.requirementId
+    if (filters.listingId) nextFilters.listingId = filters.listingId
+
     const query = matchFiltersToSearchParams(nextFilters).toString()
     router.push(query ? `/dashboard/matches?${query}` : "/dashboard/matches")
   }
 
   function handleClear() {
-    router.push("/dashboard/matches")
+    const preserved: ParsedMatchFilters = {}
+    if (filters.requirementId) preserved.requirementId = filters.requirementId
+    if (filters.listingId) preserved.listingId = filters.listingId
+    const query = matchFiltersToSearchParams(preserved).toString()
+    router.push(query ? `/dashboard/matches?${query}` : "/dashboard/matches")
   }
 
   return (

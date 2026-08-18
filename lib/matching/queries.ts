@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Match } from "@/lib/types"
-import { matchPassesFilters, type ParsedMatchFilters } from "@/lib/matching/filters"
+import {
+  isActiveMatchRecord,
+  matchPassesFilters,
+  type ParsedMatchFilters,
+} from "@/lib/matching/filters"
 
 const MATCH_SELECT = `
   *,
@@ -44,6 +48,10 @@ function sortMatches(a: MatchView, b: MatchView) {
   return new Date(b.listing.created_at).getTime() - new Date(a.listing.created_at).getTime()
 }
 
+function normalizeMatches(rows: MatchView[]): MatchView[] {
+  return rows.filter((match) => match.requirement && match.listing && isActiveMatchRecord(match))
+}
+
 async function fetchMatchesForRequirementIds(
   supabase: SupabaseClient,
   requirementIds: string[],
@@ -57,7 +65,24 @@ async function fetchMatchesForRequirementIds(
 
   if (error) throw new Error(error.message)
 
-  return ((data ?? []) as MatchView[]).filter((match) => match.requirement && match.listing)
+  return normalizeMatches((data ?? []) as MatchView[])
+}
+
+async function fetchMatchesForListingIds(supabase: SupabaseClient, listingIds: string[]) {
+  if (listingIds.length === 0) return [] as MatchView[]
+
+  const { data, error } = await supabase
+    .from("matches")
+    .select(MATCH_SELECT)
+    .in("listing_id", listingIds)
+
+  if (error) throw new Error(error.message)
+
+  return normalizeMatches((data ?? []) as MatchView[])
+}
+
+function applyFilters(matches: MatchView[], filters: ParsedMatchFilters) {
+  return matches.filter((match) => matchPassesFilters(match, filters)).sort(sortMatches)
 }
 
 export async function getBuyerMatches(
@@ -69,15 +94,14 @@ export async function getBuyerMatches(
     .from("buyer_requirements")
     .select("id")
     .eq("buyer_company_id", companyId)
+    .eq("status", "active")
 
   if (error) throw new Error(error.message)
 
-  const matches = await fetchMatchesForRequirementIds(
-    supabase,
-    (requirements ?? []).map((row) => row.id),
-  )
+  const requirementIds = (requirements ?? []).map((row) => row.id)
+  const matches = await fetchMatchesForRequirementIds(supabase, requirementIds)
 
-  return matches.filter((match) => matchPassesFilters(match, filters)).sort(sortMatches)
+  return applyFilters(matches, filters)
 }
 
 export async function getSupplierMatches(
@@ -89,26 +113,56 @@ export async function getSupplierMatches(
     .from("waste_listings")
     .select("id")
     .eq("supplier_company_id", companyId)
+    .eq("status", "active")
 
   if (error) throw new Error(error.message)
 
-  const listingIds = new Set((listings ?? []).map((row) => row.id))
-  if (listingIds.size === 0) return [] as MatchView[]
+  const listingIds = (listings ?? []).map((row) => row.id)
+  const matches = await fetchMatchesForListingIds(supabase, listingIds)
 
-  const { data, error: matchError } = await supabase.from("matches").select(MATCH_SELECT)
+  return applyFilters(matches, filters)
+}
 
-  if (matchError) throw new Error(matchError.message)
+export async function getMatchesForRequirement(
+  supabase: SupabaseClient,
+  requirementId: string,
+  companyId: string,
+  limit?: number,
+) {
+  const { data: requirement, error } = await supabase
+    .from("buyer_requirements")
+    .select("id")
+    .eq("id", requirementId)
+    .eq("buyer_company_id", companyId)
+    .maybeSingle()
 
-  return ((data ?? []) as MatchView[])
-    .filter(
-      (match) =>
-        match.requirement &&
-        match.listing &&
-        listingIds.has(match.listing_id) &&
-        listingIds.has(match.listing.id),
-    )
-    .filter((match) => matchPassesFilters(match, filters))
-    .sort(sortMatches)
+  if (error) throw new Error(error.message)
+  if (!requirement) return [] as MatchView[]
+
+  const matches = await fetchMatchesForRequirementIds(supabase, [requirementId])
+  const sorted = matches.sort(sortMatches)
+  return limit != null ? sorted.slice(0, limit) : sorted
+}
+
+export async function getMatchesForListing(
+  supabase: SupabaseClient,
+  listingId: string,
+  companyId: string,
+  limit?: number,
+) {
+  const { data: listing, error } = await supabase
+    .from("waste_listings")
+    .select("id")
+    .eq("id", listingId)
+    .eq("supplier_company_id", companyId)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  if (!listing) return [] as MatchView[]
+
+  const matches = await fetchMatchesForListingIds(supabase, [listingId])
+  const sorted = matches.sort(sortMatches)
+  return limit != null ? sorted.slice(0, limit) : sorted
 }
 
 export async function getTopMatchesForBuyer(
@@ -127,6 +181,11 @@ export async function getTopMatchesForSupplier(
 ) {
   const matches = await getSupplierMatches(supabase, companyId, {})
   return matches.slice(0, limit)
+}
+
+export async function getBuyerMatchCount(supabase: SupabaseClient, companyId: string) {
+  const matches = await getBuyerMatches(supabase, companyId, {})
+  return matches.length
 }
 
 export async function getActiveRequirementCount(

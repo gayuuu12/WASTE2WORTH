@@ -56,7 +56,7 @@ export function MarketplaceListingCard({
         <p className="text-muted-foreground">{listing.material_name}</p>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1">
           <p>
-            <span className="text-muted-foreground">Qty:</span>{" "}
+            <span className="text-muted-foreground">Available:</span>{" "}
             {formatQuantity(listing.quantity, listing.quantity_unit)}
           </p>
           <p className="font-medium">

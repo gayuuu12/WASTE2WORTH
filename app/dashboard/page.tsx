@@ -1,6 +1,5 @@
 import Link from "next/link"
 import { MyListingCard } from "@/components/listings/my-listing-card"
-import { MatchCard } from "@/components/matches/match-card"
 import { RequirementCard } from "@/components/requirements/requirement-card"
 import { EmptyState } from "@/components/ui/empty-state"
 import { PageHeader } from "@/components/ui/page-header"
@@ -15,22 +14,19 @@ import {
 } from "@/lib/listings/queries"
 import {
   getActiveRequirementCount,
+  getBuyerMatchCount,
   getSupplierMatchOpportunityCount,
-  getTopMatchesForBuyer,
-  getTopMatchesForSupplier,
 } from "@/lib/matching/queries"
 import { canManageRequirements } from "@/lib/requirements/auth"
 import { getCompanyRequirements } from "@/lib/requirements/auth"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
 import type { BuyerRequirement, WasteListing } from "@/lib/types"
-import type { MatchView } from "@/lib/matching/queries"
 import {
   ArrowLeftRight,
   ClipboardList,
   Package,
   Plus,
-  Sparkles,
   Store,
   Wand2,
 } from "lucide-react"
@@ -53,23 +49,21 @@ export default async function DashboardPage() {
   let recentListings: WasteListing[] = []
   let activeRequirementCount = 0
   let recentRequirements: BuyerRequirement[] = []
-  let topBuyerMatches: MatchView[] = []
+  let buyerMatchCount = 0
   let supplierOpportunities = 0
-  let topSupplierMatches: MatchView[] = []
   let transactionCount = 0
 
   if (isSupplier) {
     activeListingCount = await getActiveListingCount(supabase, company.id)
     recentListings = await getRecentCompanyListings(supabase, company.id, 3)
     supplierOpportunities = await getSupplierMatchOpportunityCount(supabase, company.id)
-    topSupplierMatches = await getTopMatchesForSupplier(supabase, company.id, 3)
   }
 
   if (isBuyer) {
     activeRequirementCount = await getActiveRequirementCount(supabase, company.id)
     const requirements = await getCompanyRequirements(company.id)
     recentRequirements = requirements.slice(0, 3)
-    topBuyerMatches = await getTopMatchesForBuyer(supabase, company.id, 3)
+    buyerMatchCount = await getBuyerMatchCount(supabase, company.id)
   }
 
   const { count: transactions, error: transactionsError } = await supabase
@@ -102,14 +96,14 @@ export default async function DashboardPage() {
                 label="Active listings"
                 value={activeListingCount}
                 href="/dashboard/listings"
-                hrefLabel="Manage listings"
+                hrefLabel="My Listings"
               />
               <StatCard
-                label="Buyer opportunities"
-                description="Matches at 70% or higher"
+                label="Matching buyers"
+                description="Across active listings"
                 value={supplierOpportunities}
-                href="/dashboard/matches"
-                hrefLabel="View matches"
+                href="/dashboard/listings"
+                hrefLabel="View listings"
               />
             </>
           ) : null}
@@ -119,13 +113,14 @@ export default async function DashboardPage() {
                 label="Active requirements"
                 value={activeRequirementCount}
                 href="/dashboard/requirements"
-                hrefLabel="Manage requirements"
+                hrefLabel="My Requirements"
               />
               <StatCard
-                label="Matching listings"
-                value={topBuyerMatches.length > 0 ? topBuyerMatches.length : "—"}
-                href="/dashboard/matches"
-                hrefLabel="View matches"
+                label="Matching suppliers"
+                description="Across active requirements"
+                value={buyerMatchCount}
+                href="/dashboard/requirements"
+                hrefLabel="View requirements"
               />
             </>
           ) : null}
@@ -148,7 +143,7 @@ export default async function DashboardPage() {
             <>
               <Link href="/dashboard/listings/new" className={cn(buttonVariants())}>
                 <Plus className="mr-2 size-4" aria-hidden />
-                Create listing
+                New listing
               </Link>
               <Link
                 href="/dashboard/listings/ai-new"
@@ -163,18 +158,14 @@ export default async function DashboardPage() {
             <>
               <Link href="/dashboard/requirements/new" className={cn(buttonVariants())}>
                 <Plus className="mr-2 size-4" aria-hidden />
-                Add requirement
+                New Requirement
               </Link>
               <Link href="/marketplace" className={cn(buttonVariants({ variant: "outline" }))}>
                 <Store className="mr-2 size-4" aria-hidden />
-                Browse marketplace
+                Marketplace
               </Link>
             </>
           ) : null}
-          <Link href="/dashboard/matches" className={cn(buttonVariants({ variant: "outline" }))}>
-            <Sparkles className="mr-2 size-4" aria-hidden />
-            View matches
-          </Link>
         </div>
       </section>
 
@@ -209,35 +200,16 @@ export default async function DashboardPage() {
           </Card>
         ) : null}
 
-        {isBuyer && topBuyerMatches.length > 0 ? (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">Top matches for your requirements</p>
-            {topBuyerMatches.map((match) => (
-              <MatchCard key={match.id} match={match} perspective="buyer" />
-            ))}
-          </div>
-        ) : null}
-
-        {isSupplier && topSupplierMatches.length > 0 ? (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">Matching buyer opportunities</p>
-            {topSupplierMatches.map((match) => (
-              <MatchCard key={`supplier-${match.id}`} match={match} perspective="supplier" />
-            ))}
-          </div>
-        ) : null}
-
         {isSupplier &&
         recentListings.length === 0 &&
-        topSupplierMatches.length === 0 &&
         !isBuyer ? (
           <EmptyState
             title="No listings yet"
-            description="Publish your first surplus material and start finding buyers."
+            description="Publish your first surplus material — matching buyers appear on each listing."
             icon={<Package className="size-5" aria-hidden />}
           >
             <Link href="/dashboard/listings/new" className={cn(buttonVariants())}>
-              Create listing
+              New listing
             </Link>
             <Link
               href="/dashboard/listings/ai-new"
@@ -250,15 +222,14 @@ export default async function DashboardPage() {
 
         {isBuyer &&
         recentRequirements.length === 0 &&
-        topBuyerMatches.length === 0 &&
         !isSupplier ? (
           <EmptyState
             title="No requirements yet"
-            description="Tell Waste2Worth what material you need."
+            description="Create a requirement and matching suppliers appear automatically."
             icon={<ClipboardList className="size-5" aria-hidden />}
           >
             <Link href="/dashboard/requirements/new" className={cn(buttonVariants())}>
-              Add requirement
+              New Requirement
             </Link>
           </EmptyState>
         ) : null}

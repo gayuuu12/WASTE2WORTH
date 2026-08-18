@@ -48,7 +48,7 @@ export async function createOfferAction(
     return { error: listingLookupError.message }
   }
 
-  if (!listingRow?.supplier_company_id) {
+  if (!listingRow?.supplier_company_id || listingRow.quantity <= 0) {
     return { error: "Listing not found or is no longer active." }
   }
 

@@ -1,5 +1,6 @@
 import Link from "next/link"
 import type { MatchView } from "@/lib/matching/queries"
+import { matchesPageHref } from "@/lib/matching/filters"
 import { formatDate, formatMoney, formatQuantity, titleCase } from "@/lib/format"
 import {
   MatchScoreBreakdownView,
@@ -101,6 +102,12 @@ export function MatchCard({
         {perspective === "buyer" ? (
           <>
             <Link
+              href={`/dashboard/requirements/${requirement.id}`}
+              className={cn(buttonVariants({ variant: "outline" }))}
+            >
+              View requirement
+            </Link>
+            <Link
               href={`/dashboard/listings/view/${listing.id}`}
               className={cn(buttonVariants())}
             >
@@ -115,7 +122,7 @@ export function MatchCard({
           </>
         ) : (
           <Link
-            href={`/dashboard/listings/${listing.id}`}
+            href={matchesPageHref({ listingId: listing.id })}
             className={cn(buttonVariants())}
           >
             View opportunity
